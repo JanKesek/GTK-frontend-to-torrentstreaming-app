@@ -3,7 +3,7 @@
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib, Gdk
-
+import os
 
 def idle_add(old_func):
 	def new_func(*args):
@@ -35,7 +35,7 @@ class Interface:
 		mainloop.quit()
 	@idle_add
 	def start_stop(self, *args):
-		if self.button.get_label() == "Start\n":
+		if self.button.get_label() == "Start":
 			filepath = self.entry.get_text().strip()
 			if os.path.isfile(filepath):
 				filepath = os.path.realpath(filepath)
@@ -46,7 +46,7 @@ class Interface:
 				#player.set_state(Gst.State.NULL)
 				self.button.set_label("Start")
 		else:
-			print(self.button.get_label()=="Start\n")
+			print(self.button.get_label()=="Start")
 			print("CANNOT START VIDEO, LABEL IS {}".format(self.button.get_label()))
 if __name__ == '__main__':
 	import sys, signal
