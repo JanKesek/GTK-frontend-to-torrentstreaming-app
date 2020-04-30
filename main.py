@@ -1,8 +1,11 @@
 #!/usr/bin/python3
 
 import gi
+
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GLib, Gdk
+gi.require_version('WebKit2', '4.0')
+
+from gi.repository import Gtk, GLib, Gdk, WebKit2
 
 if __name__ == '__main__':
 	import sys, signal
@@ -24,14 +27,26 @@ if __name__ == '__main__':
 	class Interface:
 		def __init__(self):
 			self.builder = Gtk.Builder()
-			self.builder.add_from_file('interface.glade')
+			self.builder.add_from_file('videoplayer2.glade')
 			self.builder.connect_signals(self)
+			
+			self.webview = WebKit2.WebView()
+			self.notebook1.append_page(self.webview)
+			self.webview.show()
+			self.notebook1.set_current_page(1)
+			self.webview.load_uri('https://raw.githubusercontent.com/haael/white-box-fapkc/master/README.md')
+			
+			#self.drawingarea1.connect('draw', self.draw)
 		
 		def __getattr__(self, attr):
 			widget = self.builder.get_object(attr)
 			if widget == None:
 				raise AttributeError("Widget not found: " + attr)
 			return widget
+		
+		def draw(self, widget, ctx):
+			ctx.set_source_rgb(0.7, 0.7, 1)
+			ctx.paint()
 		
 		@idle_add
 		def test(self, *args):
@@ -40,6 +55,11 @@ if __name__ == '__main__':
 		@idle_add
 		def quit(self, *args):
 			mainloop.quit()
+		
+		@idle_add
+		def mouse(self, widget, event):
+			self.progressbar1.set_fraction(event.x / self.progressbar1.get_allocated_width())
+			self.progresstext1.set_text(str(int(event.x)))
 	
 	interface = Interface()
 	interface.window1.show_all()

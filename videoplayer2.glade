@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.18.3 -->
+<!-- Generated with glade 3.22.1 -->
 <interface>
   <requires lib="gtk+" version="3.12"/>
   <object class="GtkWindow" id="window1">
     <property name="can_focus">False</property>
+    <signal name="destroy" handler="quit" swapped="no"/>
+    <child>
+      <placeholder/>
+    </child>
     <child>
       <object class="GtkBox" id="box3">
         <property name="visible">True</property>
@@ -24,6 +28,7 @@
                 <property name="hexpand">True</property>
                 <property name="use_stock">True</property>
                 <property name="always_show_image">True</property>
+                <signal name="clicked" handler="test" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">True</property>
@@ -98,10 +103,10 @@
               <object class="GtkVolumeButton" id="volumebutton1">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
+                <property name="focus_on_click">False</property>
                 <property name="receives_default">True</property>
                 <property name="hexpand">True</property>
                 <property name="relief">none</property>
-                <property name="focus_on_click">False</property>
                 <property name="orientation">vertical</property>
                 <property name="icons">audio-volume-muted-symbolic
 audio-volume-high-symbolic
@@ -148,6 +153,10 @@ audio-volume-medium-symbolic</property>
               <object class="GtkEntry" id="entry1">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
+                <property name="truncate_multiline">True</property>
+                <property name="caps_lock_warning">False</property>
+                <property name="placeholder_text" translatable="yes">enter magnet link</property>
+                <property name="input_purpose">url</property>
               </object>
               <packing>
                 <property name="expand">True</property>
@@ -157,10 +166,13 @@ audio-volume-medium-symbolic</property>
             </child>
             <child>
               <object class="GtkButton" id="button6">
-                <property name="label" translatable="yes">Search</property>
+                <property name="label">gtk-jump-to</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <property name="relief">none</property>
+                <property name="use_stock">True</property>
+                <property name="always_show_image">True</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -176,9 +188,38 @@ audio-volume-medium-symbolic</property>
           </packing>
         </child>
         <child>
-          <object class="GtkDrawingArea" id="drawingarea1">
+          <object class="GtkNotebook" id="notebook1">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can_focus">True</property>
+            <property name="show_tabs">False</property>
+            <child>
+              <object class="GtkDrawingArea" id="drawingarea1">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+            </child>
+            <child type="tab">
+              <object class="GtkLabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">page 1</property>
+              </object>
+              <packing>
+                <property name="tab_fill">False</property>
+              </packing>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+            <child type="tab">
+              <placeholder/>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+            <child type="tab">
+              <placeholder/>
+            </child>
           </object>
           <packing>
             <property name="expand">True</property>
@@ -187,9 +228,45 @@ audio-volume-medium-symbolic</property>
           </packing>
         </child>
         <child>
-          <object class="GtkProgressBar" id="progressbar1">
+          <object class="GtkEventBox">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="events">GDK_BUTTON1_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_STRUCTURE_MASK</property>
+            <property name="visible_window">False</property>
+            <property name="above_child">True</property>
+            <signal name="button-press-event" handler="mouse" swapped="no"/>
+            <signal name="button-release-event" handler="mouse" swapped="no"/>
+            <signal name="motion-notify-event" handler="mouse" swapped="no"/>
+            <child>
+              <object class="GtkOverlay">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <child>
+                  <object class="GtkProgressBar" id="progressbar1">
+                    <property name="height_request">20</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="fraction">0.29999999999999999</property>
+                    <property name="text" translatable="yes">0:00:00</property>
+                  </object>
+                  <packing>
+                    <property name="pass_through">True</property>
+                    <property name="index">-1</property>
+                  </packing>
+                </child>
+                <child type="overlay">
+                  <object class="GtkLabel" id="progresstext1">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">0:00:00</property>
+                    <property name="track_visited_links">False</property>
+                  </object>
+                  <packing>
+                    <property name="pass_through">True</property>
+                  </packing>
+                </child>
+              </object>
+            </child>
           </object>
           <packing>
             <property name="expand">False</property>
