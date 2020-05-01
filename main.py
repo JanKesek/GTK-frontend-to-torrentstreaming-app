@@ -63,10 +63,20 @@ class Interface:
 		if os.path.isfile(filepath):
 			filepath = os.path.realpath(filepath)
 			self.player.set_property("uri", "file://" + filepath)
-			self.player.set_state(Gst.State.PLAYING)
+			#self.player.set_state(Gst.State.PLAYING)
 		else:
 			self.player.set_state(Gst.State.NULL)
-	
+	@idle_add
+	def play(self,*args):
+		self.player.set_state(Gst.State.PLAYING)
+	@idle_add
+	def pause(self,*args):
+		self.player.set_state(Gst.State.PAUSED)
+	@idle_add
+	def stop(self,*args):
+		self.player.set_state(Gst.State.NULL)		
+		#self.notebook1.set_current_page(1)
+		#self.player.set_state(Gst.State.STOP)
 	@idle_add
 	def progress_mouse(self, widget, event):
 		self.progressbar.set_fraction(event.x / self.progressbar.get_allocated_width())
