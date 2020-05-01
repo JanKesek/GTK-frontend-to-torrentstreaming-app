@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 
-import sys, os, gi
+import os, gi
 
 gi.require_version('Gtk', '3.0')
 gi.require_version('WebKit2', '4.0')
@@ -27,6 +27,8 @@ class Interface:
 		self.builder.add_from_file('videoplayer3.glade')
 		self.builder.connect_signals(self)
 		
+		self.movie_window.connect('draw', self.movie_window_background)
+		
 		self.webview = WebKit2.WebView()
 		self.webview.set_margin_top(60)
 		self.webview.set_margin_bottom(60)
@@ -47,6 +49,10 @@ class Interface:
 			raise AttributeError("Widget not found: " + attr)
 		return widget
 	
+	def movie_window_background(self, widget, ctx):
+		ctx.set_source_rgb(0, 0, 0)
+		ctx.paint()
+	
 	@idle_add
 	def test(self, *args):
 		print("test")
@@ -66,17 +72,21 @@ class Interface:
 			#self.player.set_state(Gst.State.PLAYING)
 		else:
 			self.player.set_state(Gst.State.NULL)
+	
 	@idle_add
 	def play(self,*args):
 		self.player.set_state(Gst.State.PLAYING)
+	
 	@idle_add
 	def pause(self,*args):
 		self.player.set_state(Gst.State.PAUSED)
+	
 	@idle_add
 	def stop(self,*args):
 		self.player.set_state(Gst.State.NULL)		
 		#self.notebook1.set_current_page(1)
 		#self.player.set_state(Gst.State.STOP)
+	
 	@idle_add
 	def progress_mouse(self, widget, event):
 		self.progressbar.set_fraction(event.x / self.progressbar.get_allocated_width())
@@ -100,7 +110,6 @@ class Interface:
 
 
 if __name__ == '__main__':
-	import os, time
 	import sys, signal
 	
 	GLib.threads_init()
