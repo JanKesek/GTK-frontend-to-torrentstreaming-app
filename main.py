@@ -35,8 +35,9 @@ class Interface:
 		self.notebook1.append_page(self.webview)
 		self.webview.show()
 		self.webview.load_uri('https://raw.githubusercontent.com/haael/white-box-fapkc/master/README.md')
-		
 		self.player = Gst.ElementFactory.make("playbin", "player")
+		self.player.set_property("volume", 0.5)
+
 		bus = self.player.get_bus()
 		bus.add_signal_watch()
 		bus.enable_sync_message_emission()
@@ -76,7 +77,7 @@ class Interface:
 	@idle_add
 	def play(self,*args):
 		self.player.set_state(Gst.State.PLAYING)
-	
+		print(self.player.get_property("volume"))
 	@idle_add
 	def pause(self,*args):
 		self.player.set_state(Gst.State.PAUSED)
@@ -86,7 +87,12 @@ class Interface:
 		self.player.set_state(Gst.State.NULL)		
 		#self.notebook1.set_current_page(1)
 		#self.player.set_state(Gst.State.STOP)
-	
+	@idle_add
+	def change_volume(self,*args):
+		new_volume=self.volumebutton1.get_value()
+		#self.volume.set_property('volume',new_volume*10)
+		self.player.set_property('volume',new_volume)
+		#print(self.volume.get_property('volume'))
 	@idle_add
 	def progress_mouse(self, widget, event):
 		self.progressbar.set_fraction(event.x / self.progressbar.get_allocated_width())

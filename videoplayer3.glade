@@ -28,7 +28,7 @@
                 <property name="hexpand">True</property>
                 <property name="use_stock">True</property>
                 <property name="always_show_image">True</property>
-                <signal name="clicked" handler="test" swapped="no"/>
+                <signal name="clicked" handler="play" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">True</property>
@@ -45,6 +45,7 @@
                 <property name="hexpand">True</property>
                 <property name="use_stock">True</property>
                 <property name="always_show_image">True</property>
+                <signal name="clicked" handler="stop" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">True</property>
@@ -61,6 +62,7 @@
                 <property name="hexpand">True</property>
                 <property name="use_stock">True</property>
                 <property name="always_show_image">True</property>
+                <signal name="clicked" handler="pause" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">True</property>
@@ -112,6 +114,7 @@
 audio-volume-high-symbolic
 audio-volume-low-symbolic
 audio-volume-medium-symbolic</property>
+                <signal name="value-changed" handler="change_volume" swapped="no" />
                 <child internal-child="plus_button">
                   <object class="GtkButton" id="volumebutton-plus_button1">
                     <property name="can_focus">True</property>
