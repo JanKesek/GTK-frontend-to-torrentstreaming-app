@@ -1,6 +1,8 @@
 
 progress, trough {
-  min-height: 20px;
+   -progress-min-horizontal-bar-height: 20px;
+   -trough-min-horizontal-bar-height:20px;
+  
 }
 
 notebook {
