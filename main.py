@@ -37,7 +37,7 @@ class Interface:
 		self.webview.load_uri('https://raw.githubusercontent.com/haael/white-box-fapkc/master/README.md')
 		self.player = Gst.ElementFactory.make("playbin", "player")
 		self.player.set_property("volume", 0.5)
-
+		self.forwardHelper=10
 		bus = self.player.get_bus()
 		bus.add_signal_watch()
 		bus.enable_sync_message_emission()
@@ -93,6 +93,26 @@ class Interface:
 		#self.volume.set_property('volume',new_volume*10)
 		self.player.set_property('volume',new_volume)
 		#print(self.volume.get_property('volume'))
+	@idle_add
+	def rewind(self,*args):
+		current=self.player.query_position(Gst.Format.TIME)[1]/Gst.SECOND
+		print(current)
+		self.seek(current-5)
+	@idle_add
+	def forward(self,*args):
+		#seek_perc=self.progressbar.get_fraction()
+		current=self.player.query_position(Gst.Format.TIME)[1]/Gst.SECOND
+		print(current)
+		self.seek(current+5)
+	@idle_add
+	def set_position(self,*args):
+		seek_perc=self.progressbar.get_fraction()
+		duration=self.player.query_duration(Gst.Format.TIME)[1]/Gst.SECOND
+		self.seek(duration*seek_perc)	
+	def seek(self,position):
+		self.player.seek_simple(Gst.Format.TIME,
+				Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, Gst.SECOND*position)	
+
 	@idle_add
 	def progress_mouse(self, widget, event):
 		self.progressbar.set_fraction(event.x / self.progressbar.get_allocated_width())
