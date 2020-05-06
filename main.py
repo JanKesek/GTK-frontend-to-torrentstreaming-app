@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 
-import os, gi
+import os, gi, threading
 
 gi.require_version('Gtk', '3.0')
 gi.require_version('WebKit2', '4.0')
@@ -38,12 +38,16 @@ class Interface:
 		self.player = Gst.ElementFactory.make("playbin", "player")
 		self.player.set_property("volume", 0.5)
 		self.forwardHelper=10
+		self.finished=False
+
+		#self.elapsing_progress()
+		self.progressbar.set_fraction(0)
 		bus = self.player.get_bus()
 		bus.add_signal_watch()
 		bus.enable_sync_message_emission()
 		bus.connect("message", self.on_message)
 		bus.connect("sync-message::element", self.on_sync_message)
-	
+		self.notebook1.set_current_page(1)
 	def __getattr__(self, attr):
 		widget = self.builder.get_object(attr)
 		if widget == None:
@@ -53,10 +57,6 @@ class Interface:
 	def movie_window_background(self, widget, ctx):
 		ctx.set_source_rgb(0, 0, 0)
 		ctx.paint()
-	
-	@idle_add
-	def test(self, *args):
-		print("test")
 	
 	@idle_add
 	def quit(self, *args):
@@ -70,22 +70,33 @@ class Interface:
 		if os.path.isfile(filepath):
 			filepath = os.path.realpath(filepath)
 			self.player.set_property("uri", "file://" + filepath)
+			self.duration=self.player.query_duration(Gst.Format.TIME)[1]/Gst.SECOND
 			#self.player.set_state(Gst.State.PLAYING)
 		else:
 			self.player.set_state(Gst.State.NULL)
 	
 	@idle_add
 	def play(self,*args):
+		if self.finished: 
+			self.progressbar.set_fraction(0)
+			self.finished=False
+		
+		#print(self.duration)
+		self.elapsing_progress()
 		self.player.set_state(Gst.State.PLAYING)
+		self.notebook1.set_current_page(0)
 		print(self.player.get_property("volume"))
 	@idle_add
 	def pause(self,*args):
 		self.player.set_state(Gst.State.PAUSED)
-	
+		self.notebook1.set_current_page(0)
+		self.t.cancel()
 	@idle_add
 	def stop(self,*args):
 		self.player.set_state(Gst.State.NULL)		
-		#self.notebook1.set_current_page(1)
+		self.notebook1.set_current_page(1)
+		self.t.cancel()
+		self.progressbar.set_fraction(0)
 		#self.player.set_state(Gst.State.STOP)
 	@idle_add
 	def change_volume(self,*args):
@@ -107,12 +118,31 @@ class Interface:
 	@idle_add
 	def set_position(self,*args):
 		seek_perc=self.progressbar.get_fraction()
+		#print("FROM set_position {}".format(seek_perc))
 		duration=self.player.query_duration(Gst.Format.TIME)[1]/Gst.SECOND
+		print(duration)
 		self.seek(duration*seek_perc)	
 	def seek(self,position):
 		self.player.seek_simple(Gst.Format.TIME,
 				Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, Gst.SECOND*position)	
-
+	def elapsing_progress(self):
+		self.t=threading.Timer(1.0,self.elapsing_progress)
+		self.t.daemon=True
+		self.t.start()
+		curr=self.progressbar.get_fraction()
+		if self.duration==0.0:
+			self.duration=self.player.query_duration(Gst.Format.TIME)[1]/Gst.SECOND
+			self.progressbar.set_fraction(curr+0.01)
+		else:
+			self.progressbar.set_fraction(curr+(1.0/self.duration))
+		if curr==1.0:
+			self.finished=True
+			self.t.cancel()
+		#print("OBECNY CZAS FILMU: ", curr)
+	#def resume(self):
+	#	self.t=threading.Timer(1.0, self.elapsing_progress)
+	#	self.t.daemon=True
+	#	self.t.start()
 	@idle_add
 	def progress_mouse(self, widget, event):
 		self.progressbar.set_fraction(event.x / self.progressbar.get_allocated_width())

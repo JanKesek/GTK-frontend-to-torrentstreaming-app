@@ -96,7 +96,6 @@
                 <property name="use_stock">True</property>
                 <property name="always_show_image">True</property>
                 <signal name="clicked" handler="forward" swapped="no"/>
-
               </object>
               <packing>
                 <property name="expand">True</property>
@@ -117,7 +116,7 @@
 audio-volume-high-symbolic
 audio-volume-low-symbolic
 audio-volume-medium-symbolic</property>
-                <signal name="value-changed" handler="change_volume" swapped="no" />
+                <signal name="value-changed" handler="change_volume" swapped="no"/>
                 <child internal-child="plus_button">
                   <object class="GtkButton" id="volumebutton-plus_button1">
                     <property name="can_focus">True</property>
@@ -243,7 +242,9 @@ audio-volume-medium-symbolic</property>
             <property name="visible_window">False</property>
             <property name="above_child">True</property>
             <signal name="button-press-event" handler="progress_mouse" swapped="no"/>
+            <signal name="button-press-event" handler="set_position" swapped="no"/>
             <signal name="button-release-event" handler="progress_mouse" swapped="no"/>
+            <signal name="button-release-event" handler="set_position" swapped="no"/>
             <signal name="motion-notify-event" handler="progress_mouse" swapped="no"/>
             <child>
               <object class="GtkOverlay">
@@ -256,6 +257,10 @@ audio-volume-medium-symbolic</property>
                     <property name="can_focus">False</property>
                     <property name="fraction">0.29999999999999999</property>
                     <property name="text" translatable="yes">0:00:00</property>
+                    <signal name="button-press-event" handler="set_position" swapped="no"/>
+                    <signal name="button-release-event" handler="set_position" swapped="no"/>
+                    <signal name="drag-drop" handler="set_position" swapped="no"/>
+                    <signal name="drag-motion" handler="set_position" swapped="no"/>
                   </object>
                   <packing>
                     <property name="pass_through">True</property>
