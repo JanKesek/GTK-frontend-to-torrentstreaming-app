@@ -28,7 +28,8 @@ class Interface:
 		self.builder.connect_signals(self)
 		
 		self.movie_window.connect('draw', self.movie_window_background)
-		
+		#self.main_window.hide_titlebar_when_maximized()
+
 		self.webview = WebKit2.WebView()
 		self.webview.set_margin_top(60)
 		self.webview.set_margin_bottom(60)
@@ -62,7 +63,20 @@ class Interface:
 		print("quit")
 		idle_add(lambda: self.player.set_state(Gst.State.NULL))()
 		self.mainloop.quit()
-	
+	@idle_add
+	def fullscreen(self,*args):
+		print("FULLSCREEN CLICKED")
+		if self.fullscreen_button.get_active():
+			self.main_window.fullscreen()
+			self.box5.set_visible(False)
+			self.progress_box.set_visible(False)
+			#self.main_window.set_decorated(False)
+		else:
+			self.main_window.unfullscreen()
+			self.box5.set_visible(True)
+			self.progress_box.set_visible(True)
+			#self.main_window.set_decorated(True)
+		#self.box4.set_visible(not self.main_window.is_fullscreen())
 	@idle_add
 	def open_url(self, *args):
 		print("current working directory", os.getcwd())
@@ -75,17 +89,24 @@ class Interface:
 	
 	@idle_add
 	def play(self, *args):
+		if self.pausebutton.get_active():
+			self.pausebutton.set_active(False)
 		self.player.set_state(Gst.State.PLAYING)
 		self.change_volume()
 		self.notebook1.set_current_page(0)
 		self.elapsing_progress()
 	
-	@idle_add
+	#@idle_add
 	def pause(self, *args):
 		self.player.set_state(Gst.State.PAUSED)
 		self.elapsing_progress()
 		self.notebook1.set_current_page(0)
-	
+	@idle_add
+	def toggle(self, *args):
+		if self.pausebutton.get_active():
+			self.pause()
+		else:
+			self.play()
 	@idle_add
 	def stop(self, *args):
 		self.player.set_state(Gst.State.NULL)
