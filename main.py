@@ -102,12 +102,12 @@ class Interface:
 	def rewind(self, *args):
 		current = self.player.query_position(Gst.Format.TIME)[1] / Gst.SECOND
 		self.seek(current - 5)
-
+	
 	@idle_add
 	def forward(self, *args):
 		current = self.player.query_position(Gst.Format.TIME)[1] / Gst.SECOND
 		self.seek(current + 5)
-
+	
 	def seek(self, position):
 		print("seek to:", position)
 		self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, Gst.SECOND * position)
