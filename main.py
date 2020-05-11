@@ -64,23 +64,42 @@ class Interface:
 		idle_add(lambda: self.player.set_state(Gst.State.NULL))()
 		self.mainloop.quit()
 	@idle_add
+	def show_elements(self,*args):
+		#print(self.progress_box.is_visible())
+		if not self.progress_box.is_visible():
+			self.progress_box.set_visible(True)
+			self.box4.set_visible(True)
+			self.box5.set_visible(True)			
+			GLib.timeout_add(5000, self.hide_elements)
+	def hide_elements(self,*args):
+		print(self.progress_box.is_visible(), " ", self.box4.is_visible())
+		if self.progress_box.is_visible():
+			self.progress_box.set_visible(False)
+		#self.main_window.set_decorated(False)
+			self.box5.set_visible(False)
+			self.box4.set_visible(False)
+		return False
+
+
+	@idle_add
 	def fullscreen(self,*args):
 		print("FULLSCREEN CLICKED")
 		if self.fullscreen_button.get_active():
 			self.main_window.fullscreen()
-			self.box5.set_visible(False)
-			self.progress_box.set_visible(False)
+			#self.box5.set_visible(False)
+			#self.progress_box.set_visible(False)
 			#self.main_window.set_decorated(False)
 		else:
 			self.main_window.unfullscreen()
-			self.box5.set_visible(True)
-			self.progress_box.set_visible(True)
+			#self.box5.set_visible(True)
+			#self.progress_box.set_visible(True)
 			#self.main_window.set_decorated(True)
 		#self.box4.set_visible(not self.main_window.is_fullscreen())
 	@idle_add
 	def open_url(self, *args):
 		print("current working directory", os.getcwd())
 		filepath = os.getcwd() + "/" + self.entry1.get_text().strip()
+		self.hide_elements()
 		if os.path.isfile(filepath):
 			filepath = os.path.realpath(filepath)
 			self.player.set_property("uri", "file://" + filepath)
