@@ -27,15 +27,15 @@ class Interface:
 		self.builder.add_from_file('videoplayer3.glade')
 		self.builder.connect_signals(self)
 		
-		self.movie_window.connect('draw', self.movie_window_background)
-		#self.main_window.hide_titlebar_when_maximized()
-
+		#self.movie_window.connect('draw', self.movie_window_background)
+		self.main_window.connect('window-state-event', self.window_state_event)
+		
 		self.webview = WebKit2.WebView()
 		self.webview.set_margin_top(60)
 		self.webview.set_margin_bottom(60)
 		self.notebook1.append_page(self.webview)
 		self.webview.show()
-		self.webview.load_uri('https://raw.githubusercontent.com/haael/white-box-fapkc/master/README.md')
+		self.webview.load_uri('https://kukai.app/')
 
 		self.player = Gst.ElementFactory.make("playbin", "player")
 		bus = self.player.get_bus()
@@ -47,7 +47,12 @@ class Interface:
 		self.progressbar.set_fraction(0)
 		self.change_volume()
 		GLib.timeout_add(1000, self.elapsing_progress)
-
+		
+		self.is_fullscreen = False
+		self.last_player_state = None
+		self.suppress_pause_toggle = False
+		self.suppress_fullscreen_toggle = False
+	
 	def __getattr__(self, attr):
 		widget = self.builder.get_object(attr)
 		if widget == None:
@@ -60,23 +65,57 @@ class Interface:
 	
 	@idle_add
 	def quit(self, *args):
-		print("quit")
-		idle_add(lambda: self.player.set_state(Gst.State.NULL))()
+		GLib.idle_add(self.player.set_state, Gst.State.NULL)
 		self.mainloop.quit()
+	
+	def window_state_event(self, mainwindow, event):
+		new_fullscreen = bool(event.new_window_state & Gdk.WindowState.FULLSCREEN)
+		if self.is_fullscreen != new_fullscreen:
+			self.is_fullscreen = new_fullscreen
+			self.update_interface_visibility()
+	
 	@idle_add
 	def fullscreen(self,*args):
-		print("FULLSCREEN CLICKED")
+		if self.player.target_state == Gst.State.PLAYING:
+			self.movie_window.grab_focus()
+		elif self.player.target_state == Gst.State.PAUSED:
+			self.pausebutton.grab_focus()
+		
+		if self.suppress_fullscreen_toggle:
+			self.suppress_fullscreen_toggle = False
+			return
+		
 		if self.fullscreen_button.get_active():
+			print("fullscreen")
 			self.main_window.fullscreen()
-			self.box5.set_visible(False)
-			self.progress_box.set_visible(False)
-			#self.main_window.set_decorated(False)
 		else:
+			print("unfullscreen")
 			self.main_window.unfullscreen()
-			self.box5.set_visible(True)
+	
+	@idle_add
+	def update_interface_visibility(self):
+		if self.player.target_state in [Gst.State.PLAYING, Gst.State.PAUSED]:
+			self.notebook1.set_current_page(0)
+		else:
+			self.notebook1.set_current_page(1)
+		
+		if not self.is_fullscreen:
+			self.address_box.set_visible(True)
 			self.progress_box.set_visible(True)
-			#self.main_window.set_decorated(True)
-		#self.box4.set_visible(not self.main_window.is_fullscreen())
+			self.button_box.set_visible(True)
+		elif self.player.target_state == Gst.State.PLAYING:
+			self.address_box.set_visible(False)
+			self.progress_box.set_visible(False)
+			self.button_box.set_visible(False)
+		elif self.player.target_state == Gst.State.PAUSED:
+			self.address_box.set_visible(False)
+			self.progress_box.set_visible(True)
+			self.button_box.set_visible(True)
+		else:
+			self.address_box.set_visible(True)
+			self.progress_box.set_visible(True)
+			self.button_box.set_visible(True)
+	
 	@idle_add
 	def open_url(self, *args):
 		print("current working directory", os.getcwd())
@@ -84,41 +123,57 @@ class Interface:
 		if os.path.isfile(filepath):
 			filepath = os.path.realpath(filepath)
 			self.player.set_property("uri", "file://" + filepath)
+			self.pause()
+			self.pausebutton.grab_focus()
+			GLib.timeout_add(500, self.seek, 0)
 		else:
-			self.player.set_state(Gst.State.NULL)
+			self.stop()
 	
 	@idle_add
 	def play(self, *args):
+		self.movie_window.grab_focus()
 		if self.pausebutton.get_active():
+			self.suppress_pause_toggle = True
 			self.pausebutton.set_active(False)
 		self.player.set_state(Gst.State.PLAYING)
-		self.change_volume()
-		self.notebook1.set_current_page(0)
 		self.elapsing_progress()
 	
-	#@idle_add
+	@idle_add
 	def pause(self, *args):
+		if not self.pausebutton.get_active():
+			self.suppress_pause_toggle = True
+			self.pausebutton.set_active(True)
 		self.player.set_state(Gst.State.PAUSED)
 		self.elapsing_progress()
-		self.notebook1.set_current_page(0)
+	
 	@idle_add
 	def toggle(self, *args):
+		if self.suppress_pause_toggle:
+			self.suppress_pause_toggle = False
+			return
+		
 		if self.pausebutton.get_active():
 			self.pause()
 		else:
 			self.play()
+	
 	@idle_add
 	def stop(self, *args):
+		if self.pausebutton.get_active():
+			self.suppress_pause_toggle = True
+			self.pausebutton.set_active(False)
+		
 		self.player.set_state(Gst.State.NULL)
-		self.notebook1.set_current_page(1)
 		self.progressbar.set_fraction(0)
 		self.progresstext.set_text("")
+		self.last_player_state = None
+		self.update_interface_visibility()
 	
 	@idle_add
 	def change_volume(self, *args):
 		new_volume = self.volumebutton1.get_value()
 		self.player.set_property('volume', new_volume)
-
+	
 	@idle_add
 	def rewind(self, *args):
 		current = self.player.query_position(Gst.Format.TIME)[1] / Gst.SECOND
@@ -132,34 +187,18 @@ class Interface:
 	def seek(self, position):
 		print("seek to:", position)
 		self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, Gst.SECOND * position)
-	
-	#def elapsing_progress(self):
-	#	self.t=threading.Timer(1.0,self.elapsing_progress)
-	#	self.t.daemon=True
-	#	self.t.start()
-	#	curr=self.progressbar.get_fraction()
-	#	if self.duration==0.0:
-	#		self.duration=self.player.query_duration(Gst.Format.TIME)[1]/Gst.SECOND
-	#		self.progressbar.set_fraction(curr+0.01)
-	#	else:
-	#		self.progressbar.set_fraction(curr+(1.0/self.duration))
-	#	if curr==1.0:
-	#		self.finished=True
-	#		self.t.cancel()
-	#	#print("OBECNY CZAS FILMU: ", curr)
-
-	#def resume(self):
-	#	self.t=threading.Timer(1.0, self.elapsing_progress)
-	#	self.t.daemon=True
-	#	self.t.start()
-	
+		
 	def elapsing_progress(self):
-		if self.player.current_state not in [Gst.State.PLAYING, Gst.State.PAUSED]: return True
+		if self.player.target_state not in [Gst.State.PLAYING, Gst.State.PAUSED]: return True
 		current = self.player.query_position(Gst.Format.TIME)[1] / Gst.SECOND
 		duration = self.player.query_duration(Gst.Format.TIME)[1] / Gst.SECOND
-		print("position:", current, duration, current / duration)
-		self.progressbar.set_fraction(current / duration)
-		self.progresstext.set_text(str(current) + " / " + str(duration))
+		#print("position:", current, duration, current / duration)
+		if duration > 0.00001:
+			self.progressbar.set_fraction(current / duration)
+			self.progresstext.set_text(str(current) + " / " + str(duration))
+		else:
+			self.progressbar.set_fraction(0)
+			self.progresstext.set_text("")
 		return True
 	
 	@idle_add
@@ -174,23 +213,66 @@ class Interface:
 		
 		self.seek(duration * seek_perc)
 	
+	@idle_add
 	def on_message(self, bus, message):
 		t = message.type
 		if t == Gst.MessageType.EOS:
-			self.player.set_state(Gst.State.NULL)
-			idle_add(lambda: self.progressbar.set_fraction(1.0))()
+			GLib.idle_add(self.progressbar.set_fraction, 1.0)
+			self.pause()
 		elif t == Gst.MessageType.ERROR:
-			self.player.set_state(Gst.State.NULL)
 			err, debug = message.parse_error()
-			print("Error: {}".format(err, debug))
+			print("Error:", err, debug)
+			self.stop()
+		elif t == Gst.MessageType.STATE_CHANGED:
+			if self.last_player_state != self.player.target_state:
+				#print(self.player.target_state)
+				self.last_player_state = self.player.target_state
+				self.update_interface_visibility()
 	
 	@idle_add
 	def on_sync_message(self, bus, message):
 		if message.get_structure().get_name() == 'prepare-window-handle':
 			imagesink = message.src
 			imagesink.set_property("force-aspect-ratio", True)
-			print("xid", self.movie_window.get_property('window').get_xid())
-			imagesink.set_window_handle(self.movie_window.get_property('window').get_xid())
+			xid = self.movie_window.get_property('window').get_xid()
+			print("xid", xid)
+			imagesink.set_window_handle(xid)
+	
+	def main_window_keydown(self, widget, event):
+		if event.keyval == 65307: # escape
+			self.main_window.unfullscreen()
+			self.suppress_fullscreen_toggle = True
+			if self.fullscreen_button.get_active():
+				self.fullscreen_button.set_active(False)
+			return True
+		elif event.keyval == 65480: # F11
+			if not self.is_fullscreen:
+				self.main_window.fullscreen()
+				self.suppress_fullscreen_toggle = True
+				if not self.fullscreen_button.get_active():
+					self.fullscreen_button.set_active(True)
+			else:
+				self.main_window.unfullscreen()
+				self.suppress_fullscreen_toggle = True
+				if self.fullscreen_button.get_active():
+					self.fullscreen_button.set_active(False)
+			return True
+		return False
+	
+	def main_window_keyup(self, widget, event):
+		return event.keyval in [65307, 65480]
+	
+	def movie_window_keydown(self, widget, event):
+		if event.keyval == 32: # space
+			self.pause()
+			self.pausebutton.grab_focus()
+			return True
+		else:
+			print("movie_window_keydown", event.keyval)
+		return False
+	
+	def movie_window_keyup(self, widget, event):
+		return event.keyval in [32]
 
 
 if __name__ == '__main__':

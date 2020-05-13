@@ -7,7 +7,9 @@ progress, trough {
 
 notebook {
  background-color: black;
+ border: none;
 }
+
 
 webview {
  margin-top: 60px;
