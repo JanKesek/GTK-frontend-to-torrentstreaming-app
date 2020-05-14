@@ -75,25 +75,20 @@ class Interface:
 			self.update_interface_visibility()
 	
 	@idle_add
-	def show_elements(self,*args):
-		#print(self.progress_box.is_visible())
-		if not self.progress_box.is_visible():
+	def show_elements(self, *args):
+		if self.is_fullscreen and not self.progress_box.is_visible():
+			self.movie_window.get_window().set_cursor(Gdk.Cursor(Gdk.CursorType.ARROW))
+			self.address_box.set_visible(False)
 			self.progress_box.set_visible(True)
-			self.box4.set_visible(True)
-			self.box5.set_visible(True)			
+			self.button_box.set_visible(True)
 			GLib.timeout_add(5000, self.hide_elements)
-	def hide_elements(self,*args):
-		print(self.progress_box.is_visible(), " ", self.box4.is_visible())
-		if self.progress_box.is_visible():
-			self.progress_box.set_visible(False)
-		#self.main_window.set_decorated(False)
-			self.box5.set_visible(False)
-			self.box4.set_visible(False)
+	
+	def hide_elements(self, *args):
+		self.update_interface_visibility()
 		return False
-
-
+	
 	@idle_add
-	def fullscreen(self,*args):
+	def fullscreen(self, *args):
 		if self.player.target_state == Gst.State.PLAYING:
 			self.movie_window.grab_focus()
 		elif self.player.target_state == Gst.State.PAUSED:
@@ -118,18 +113,22 @@ class Interface:
 			self.notebook1.set_current_page(1)
 		
 		if not self.is_fullscreen:
+			self.movie_window.get_window().set_cursor(Gdk.Cursor(Gdk.CursorType.ARROW))
 			self.address_box.set_visible(True)
 			self.progress_box.set_visible(True)
 			self.button_box.set_visible(True)
 		elif self.player.target_state == Gst.State.PLAYING:
+			self.movie_window.get_window().set_cursor(Gdk.Cursor(Gdk.CursorType.BLANK_CURSOR))
 			self.address_box.set_visible(False)
 			self.progress_box.set_visible(False)
 			self.button_box.set_visible(False)
 		elif self.player.target_state == Gst.State.PAUSED:
+			self.movie_window.get_window().set_cursor(Gdk.Cursor(Gdk.CursorType.ARROW))
 			self.address_box.set_visible(False)
 			self.progress_box.set_visible(True)
 			self.button_box.set_visible(True)
 		else:
+			self.movie_window.get_window().set_cursor(Gdk.Cursor(Gdk.CursorType.ARROW))
 			self.address_box.set_visible(True)
 			self.progress_box.set_visible(True)
 			self.button_box.set_visible(True)
