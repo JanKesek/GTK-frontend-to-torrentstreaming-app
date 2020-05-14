@@ -75,6 +75,24 @@ class Interface:
 			self.update_interface_visibility()
 	
 	@idle_add
+	def show_elements(self,*args):
+		#print(self.progress_box.is_visible())
+		if not self.progress_box.is_visible():
+			self.progress_box.set_visible(True)
+			self.box4.set_visible(True)
+			self.box5.set_visible(True)			
+			GLib.timeout_add(5000, self.hide_elements)
+	def hide_elements(self,*args):
+		print(self.progress_box.is_visible(), " ", self.box4.is_visible())
+		if self.progress_box.is_visible():
+			self.progress_box.set_visible(False)
+		#self.main_window.set_decorated(False)
+			self.box5.set_visible(False)
+			self.box4.set_visible(False)
+		return False
+
+
+	@idle_add
 	def fullscreen(self,*args):
 		if self.player.target_state == Gst.State.PLAYING:
 			self.movie_window.grab_focus()
@@ -115,11 +133,12 @@ class Interface:
 			self.address_box.set_visible(True)
 			self.progress_box.set_visible(True)
 			self.button_box.set_visible(True)
-	
+
 	@idle_add
 	def open_url(self, *args):
 		print("current working directory", os.getcwd())
 		filepath = os.getcwd() + "/" + self.entry1.get_text().strip()
+		self.hide_elements()
 		if os.path.isfile(filepath):
 			filepath = os.path.realpath(filepath)
 			self.player.set_property("uri", "file://" + filepath)
