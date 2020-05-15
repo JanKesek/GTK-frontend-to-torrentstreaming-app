@@ -18,8 +18,8 @@
 "User interface and main module."
 
 
-__author__ = "lambda"
-__credits__ = ["haael <jid:haael@jabber.at>", "lambda <>"]
+__author__ = "Janjk"
+__credits__ = ["haael <jid:haael@jabber.at>", "Janjk <jid:jklambda@jabber.hot-chilli.net>"]
 
 __copyright__ = "haael.co.uk/prim LTD"
 __license__ = "GPLv3+"
