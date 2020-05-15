@@ -58,8 +58,8 @@ class Interface:
 		self.main_window.connect('window-state-event', self.window_state_event)
 		
 		self.webview = WebKit2.WebView()
-		self.webview.set_margin_top(60)
-		self.webview.set_margin_bottom(60)
+		self.webview.set_margin_top(54)
+		self.webview.set_margin_bottom(54)
 		self.notebook1.append_page(self.webview)
 		self.webview.show()
 		self.webview.load_uri('https://kukai.app/')
