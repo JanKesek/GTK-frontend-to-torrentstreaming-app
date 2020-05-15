@@ -1,4 +1,31 @@
 #!/usr/bin/python3
+#-*- coding: utf-8 -*-
+
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>
+
+
+"User interface and main module."
+
+
+__author__ = "lambda"
+__credits__ = ["haael <jid:haael@jabber.at>", "lambda <>"]
+
+__copyright__ = "haael.co.uk/prim LTD"
+__license__ = "GPLv3+"
+
+__version__ = "0.0"
+__status__ = "alpha"
 
 
 import os, gi
@@ -20,11 +47,11 @@ def idle_add(old_func):
 
 
 class Interface:
-	def __init__(self, mainloop):
+	def __init__(self, mainloop, glade_path):
 		self.mainloop = mainloop
 		
 		self.builder = Gtk.Builder()
-		self.builder.add_from_file('videoplayer3.glade')
+		self.builder.add_from_file(glade_path)
 		self.builder.connect_signals(self)
 		
 		#self.movie_window.connect('draw', self.movie_window_background)
@@ -36,7 +63,7 @@ class Interface:
 		self.notebook1.append_page(self.webview)
 		self.webview.show()
 		self.webview.load_uri('https://kukai.app/')
-
+		
 		self.player = Gst.ElementFactory.make("playbin", "player")
 		bus = self.player.get_bus()
 		bus.add_signal_watch()
@@ -59,9 +86,9 @@ class Interface:
 			raise AttributeError("Widget not found: " + attr)
 		return widget
 	
-	def movie_window_background(self, widget, ctx):
-		ctx.set_source_rgb(0, 0, 0)
-		ctx.paint()
+	#def movie_window_background(self, widget, ctx):
+	#	ctx.set_source_rgb(0, 0, 0)
+	#	ctx.paint()
 	
 	@idle_add
 	def quit(self, *args):
@@ -73,6 +100,9 @@ class Interface:
 		if self.is_fullscreen != new_fullscreen:
 			self.is_fullscreen = new_fullscreen
 			self.update_interface_visibility()
+			if new_fullscreen != self.fullscreen_button.get_active():
+				self.suppress_fullscreen_toggle = True
+				self.fullscreen_button.set_active(new_fullscreen)
 	
 	@idle_add
 	def show_elements(self, *args):
@@ -108,9 +138,9 @@ class Interface:
 	@idle_add
 	def update_interface_visibility(self):
 		if self.player.target_state in [Gst.State.PLAYING, Gst.State.PAUSED]:
-			self.notebook1.set_current_page(0)
+			self.show_player_tab()
 		else:
-			self.notebook1.set_current_page(1)
+			self.show_webview_tab()
 		
 		if not self.is_fullscreen:
 			self.movie_window.get_window().set_cursor(Gdk.Cursor(Gdk.CursorType.ARROW))
@@ -132,7 +162,7 @@ class Interface:
 			self.address_box.set_visible(True)
 			self.progress_box.set_visible(True)
 			self.button_box.set_visible(True)
-
+	
 	@idle_add
 	def open_url(self, *args):
 		print("current working directory", os.getcwd())
@@ -205,7 +235,7 @@ class Interface:
 	def seek(self, position):
 		print("seek to:", position)
 		self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, Gst.SECOND * position)
-		
+	
 	def elapsing_progress(self):
 		if self.player.target_state not in [Gst.State.PLAYING, Gst.State.PAUSED]: return True
 		current = self.player.query_position(Gst.Format.TIME)[1] / Gst.SECOND
@@ -222,7 +252,10 @@ class Interface:
 	@idle_add
 	def progress_mouse(self, widget, event):
 		x = float(event.x)
-		seek_perc = x / self.progressbar.get_allocated_width()
+		try:
+			seek_perc = x / self.progressbar.get_allocated_width()
+		except ZeroDivisionError:
+			return
 		self.progressbar.set_fraction(seek_perc)
 		duration = self.player.query_duration(Gst.Format.TIME)[1] / Gst.SECOND
 		self.progresstext.set_text(str(duration * seek_perc) + " / " + str(duration))
@@ -291,6 +324,12 @@ class Interface:
 	
 	def movie_window_keyup(self, widget, event):
 		return event.keyval in [32]
+	
+	def show_player_tab(self):
+		self.notebook1.set_current_page(0)
+	
+	def show_webview_tab(self):
+		self.notebook1.set_current_page(1)
 
 
 if __name__ == '__main__':
@@ -305,9 +344,9 @@ if __name__ == '__main__':
 	css.load_from_path('style.css')
 	Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), css, Gtk.STYLE_PROVIDER_PRIORITY_USER)
 	
-	interface = Interface(mainloop)
+	interface = Interface(mainloop, 'videoplayer3.glade')
 	interface.main_window.show_all()
-	interface.notebook1.set_current_page(1) # 0 - player, 1 - webview
+	interface.show_webview_tab()
 	
 	signal.signal(signal.SIGTERM, lambda signum, frame: mainloop.quit())
 	sys.excepthook = lambda *args: (sys.__excepthook__(*args), mainloop.quit())
