@@ -15,7 +15,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 
-"User interface and main module."
+"User interface for MediaKilla."
 
 
 __author__ = "Janjk"
@@ -28,15 +28,13 @@ __version__ = "0.0"
 __status__ = "alpha"
 
 
-import os, gi
+import gi
 
 gi.require_version('Gtk', '3.0')
-gi.require_version('WebKit2', '4.0')
 gi.require_version('Gst', '1.0')
 gi.require_version('GstVideo', '1.0')
 
-from gi.repository import Gtk, GLib, Gdk, Gst, WebKit2
-from gi.repository import GdkX11, GstVideo
+from gi.repository import Gtk, Gdk, GdkX11, GLib, Gst, GstVideo
 
 
 def idle_add(old_func):
@@ -54,15 +52,7 @@ class Interface:
 		self.builder.add_from_file(glade_path)
 		self.builder.connect_signals(self)
 		
-		#self.movie_window.connect('draw', self.movie_window_background)
 		self.main_window.connect('window-state-event', self.window_state_event)
-		
-		self.webview = WebKit2.WebView()
-		self.webview.set_margin_top(54)
-		self.webview.set_margin_bottom(54)
-		self.notebook1.append_page(self.webview)
-		self.webview.show()
-		self.webview.load_uri('https://kukai.app/')
 		
 		self.player = Gst.ElementFactory.make("playbin", "player")
 		bus = self.player.get_bus()
@@ -85,10 +75,6 @@ class Interface:
 		if widget == None:
 			raise AttributeError("Widget not found: " + attr)
 		return widget
-	
-	#def movie_window_background(self, widget, ctx):
-	#	ctx.set_source_rgb(0, 0, 0)
-	#	ctx.paint()
 	
 	@idle_add
 	def quit(self, *args):
@@ -165,12 +151,11 @@ class Interface:
 	
 	@idle_add
 	def open_url(self, *args):
-		print("current working directory", os.getcwd())
-		filepath = os.getcwd() + "/" + self.entry1.get_text().strip()
-		self.hide_elements()
-		if os.path.isfile(filepath):
-			filepath = os.path.realpath(filepath)
-			self.player.set_property("uri", "file://" + filepath)
+		from pathlib import Path
+		
+		filepath = Path(self.entry1.get_text().strip())
+		if filepath.is_file():
+			self.player.set_property('uri', filepath.absolute().as_uri())
 			self.pause()
 			self.pausebutton.grab_focus()
 			GLib.timeout_add(500, self.seek, 0)
@@ -183,6 +168,7 @@ class Interface:
 		if self.pausebutton.get_active():
 			self.suppress_pause_toggle = True
 			self.pausebutton.set_active(False)
+		self.change_volume()
 		self.player.set_state(Gst.State.PLAYING)
 		self.elapsing_progress()
 	
@@ -334,17 +320,23 @@ class Interface:
 
 if __name__ == '__main__':
 	import sys, signal
+	from pathlib import Path
 	
 	GLib.threads_init()
 	Gst.init(None)
 	
-	mainloop = GLib.MainLoop()
+	path = Path('')
 	
 	css = Gtk.CssProvider()
-	css.load_from_path('style.css')
+	if Gtk.get_major_version() >= 3 and Gtk.get_minor_version() >= 22:
+		css.load_from_path(str(path / 'style-3.22.css'))
+	else:
+		css.load_from_path(str(path / 'style-3.18.css'))
 	Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), css, Gtk.STYLE_PROVIDER_PRIORITY_USER)
 	
-	interface = Interface(mainloop, 'videoplayer3.glade')
+	mainloop = GLib.MainLoop()
+	
+	interface = Interface(mainloop, str(path / 'videoplayer.glade'))
 	interface.main_window.show_all()
 	interface.show_webview_tab()
 	
