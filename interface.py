@@ -153,14 +153,19 @@ class Interface:
 	def open_url(self, *args):
 		from pathlib import Path
 		
-		filepath = Path(self.entry1.get_text().strip())
+		self.player.set_state(Gst.State.NULL)
+		
+		uri = self.entry1.get_text().strip()
+		
+		filepath = Path(uri)
 		if filepath.is_file():
 			self.player.set_property('uri', filepath.absolute().as_uri())
-			self.pause()
-			self.pausebutton.grab_focus()
-			GLib.timeout_add(500, self.seek, 0)
 		else:
-			self.stop()
+			self.player.set_property('uri', uri)
+		
+		self.pause()
+		self.pausebutton.grab_focus()
+		GLib.timeout_add(500, self.seek, 0)
 	
 	@idle_add
 	def play(self, *args):
@@ -229,7 +234,7 @@ class Interface:
 		#print("position:", current, duration, current / duration)
 		if duration > 0.00001:
 			self.progressbar.set_fraction(current / duration)
-			self.progresstext.set_text(str(current) + " / " + str(duration))
+			self.progresstext.set_text(str(int(current)) + " / " + str(int(duration)))
 		else:
 			self.progressbar.set_fraction(0)
 			self.progresstext.set_text("")
@@ -244,7 +249,7 @@ class Interface:
 			return
 		self.progressbar.set_fraction(seek_perc)
 		duration = self.player.query_duration(Gst.Format.TIME)[1] / Gst.SECOND
-		self.progresstext.set_text(str(duration * seek_perc) + " / " + str(duration))
+		self.progresstext.set_text(str(duration * seek_perc) + " / " + str(int(duration)))
 		
 		print("progressbar:", x, self.progressbar.get_allocated_width(), seek_perc, duration, duration * seek_perc)
 		
