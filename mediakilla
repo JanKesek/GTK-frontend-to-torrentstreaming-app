@@ -18,28 +18,39 @@
 "BitTorrent videoplayer MediaKilla."
 
 
-__author__ = "Janjk"
+__author__ = "haael"
 __credits__ = ["haael <jid:haael@jabber.at>", "Janjk <jid:jklambda@jabber.hot-chilli.net>"]
 
 __copyright__ = "haael.co.uk/prim LTD"
-__license__ = "GPLv3+"
+__license__ = 'GPL'
 
-__version__ = "0.0"
-__status__ = "alpha"
+__version__ = '0.0'
+__status__ = 'alpha'
 
 
 import sys, os, signal
 from pathlib import Path
 from itertools import product
-from interface import Interface
+
 
 import gi
 
 gi.require_version('Gtk', '3.0')
-gi.require_version('Gst', '1.0')
 gi.require_version('WebKit2', '4.0')
 
-from gi.repository import Gtk, Gdk, GLib, Gst, WebKit2
+from gi.repository import Gtk, Gdk, GLib, WebKit2
+
+
+GLib.threads_init()
+
+
+from interface import Interface, __version__ as interface_version
+if interface_version != __version__:
+	raise ImportError(f"Wrong version of module `interface`. Expected '{__version__}', got '{interface_version}'.")
+
+#from torrentsrc import TorrentSrc, __version__ as torrentsrc_version
+#if torrentsrc_version != __version__:
+#	raise ImportError(f"Wrong version of module `torrensrc`. Expected '{__version__}', got '{torrensrc_version}'.")
 
 
 def find_installation_path():	
@@ -50,7 +61,12 @@ def find_installation_path():
 	home_prefixes_windows = ['Application Data', 'AppData', '', 'Desktop']
 	file_prefixes_linux = ['', '.']
 	application_names = ['mediakilla', 'MediaKilla']
-	file_suffixes = ['-' + __version__, '']
+	
+	version_parts = __version__.split('.')
+	file_suffixes = []
+	for n in range(len(version_parts), 0, -1):
+		file_suffixes.append('-' + '.'.join(version_parts[:n]))
+	file_suffixes.append('')
 	required_files = ['style-3.22.css', 'style-3.18.css', 'videoplayer.glade']
 	
 	if os.name == 'posix':
@@ -83,9 +99,6 @@ def find_installation_path():
 
 
 if __name__ == '__main__':
-	GLib.threads_init()
-	Gst.init(None)
-	
 	path = find_installation_path()
 	print("Using installation path:", path)
 	

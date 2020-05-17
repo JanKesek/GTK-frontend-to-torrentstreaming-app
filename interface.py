@@ -22,10 +22,10 @@ __author__ = "Janjk"
 __credits__ = ["haael <jid:haael@jabber.at>", "Janjk <jid:jklambda@jabber.hot-chilli.net>"]
 
 __copyright__ = "haael.co.uk/prim LTD"
-__license__ = "GPLv3+"
+__license__ = 'GPL'
 
-__version__ = "0.0"
-__status__ = "alpha"
+__version__ = '0.0'
+__status__ = 'alpha'
 
 
 import gi
@@ -35,6 +35,10 @@ gi.require_version('Gst', '1.0')
 gi.require_version('GstVideo', '1.0')
 
 from gi.repository import Gtk, Gdk, GdkX11, GLib, Gst, GstVideo
+
+
+GLib.threads_init()
+Gst.init(None)
 
 
 def idle_add(old_func):
@@ -326,10 +330,7 @@ class Interface:
 if __name__ == '__main__':
 	import sys, signal
 	from pathlib import Path
-	
-	GLib.threads_init()
-	Gst.init(None)
-	
+		
 	path = Path('')
 	
 	css = Gtk.CssProvider()
