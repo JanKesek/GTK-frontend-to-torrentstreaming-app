@@ -1,0 +1,3 @@
+[submodule "networking"]
+	path = networking
+	url = git@gitlab.com:haael-blockchain/networking.git
