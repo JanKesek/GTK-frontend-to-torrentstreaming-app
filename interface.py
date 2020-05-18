@@ -31,6 +31,13 @@ __status__ = 'alpha'
 __all__ = 'Interface',
 
 
+import logging
+
+log = logging.getLogger('interface')
+log.setLevel(logging.DEBUG)
+if __debug__:
+	log.addHandler(logging.StreamHandler())
+
 import gi
 
 gi.require_version('Gtk', '3.0')
@@ -54,6 +61,9 @@ class Interface(GObject.Object):
 	}
 	
 	def __init__(self, glade_path):
+		log.info("Creating interface.")
+		log.debug("Interface.__init__('%s')", glade_path)
+		
 		super().__init__()
 		
 		self.builder = Gtk.Builder()
@@ -79,6 +89,7 @@ class Interface(GObject.Object):
 	
 	@idle_add
 	def quit(self, *args):
+		log.debug('quit')
 		self.emit('stop')
 		self.emit('quit')
 	

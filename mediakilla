@@ -34,6 +34,8 @@ from itertools import product
 
 log = logging.getLogger('mediakilla')
 log.setLevel(logging.DEBUG)
+if __debug__:
+	log.addHandler(logging.StreamHandler())
 
 import gi
 

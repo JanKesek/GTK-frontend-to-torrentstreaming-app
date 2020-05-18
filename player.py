@@ -31,6 +31,13 @@ __status__ = 'alpha'
 __all__ = 'Player',
 
 
+import logging
+
+log = logging.getLogger('player')
+log.setLevel(logging.DEBUG)
+if __debug__:
+	log.addHandler(logging.StreamHandler())
+
 import gi
 
 gi.require_version('Gst', '1.0')
