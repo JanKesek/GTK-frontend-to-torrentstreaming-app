@@ -22,35 +22,39 @@ __author__ = "Janjk"
 __credits__ = ["haael <jid:haael@jabber.at>", "Janjk <jid:jklambda@jabber.hot-chilli.net>"]
 
 __copyright__ = "haael.co.uk/prim LTD"
-__license__ = 'GPL'
+__license__ = 'GPLv3+'
 
 __version__ = '0.0'
 __status__ = 'alpha'
 
 
+__all__ = 'Interface',
+
+
 import gi
 
 gi.require_version('Gtk', '3.0')
-gi.require_version('Gst', '1.0')
-gi.require_version('GstVideo', '1.0')
 
-from gi.repository import Gtk, Gdk, GdkX11, GLib, Gst, GstVideo
+from gi.repository import GObject, Gtk, Gdk, GdkX11, GLib
 
-
-GLib.threads_init()
-Gst.init(None)
+from utils import *
 
 
-def idle_add(old_func):
-	def new_func(*args):
-		GLib.idle_add(old_func, *args)
-	new_func.__name__ = old_func.__name__
-	return new_func
-
-
-class Interface:
-	def __init__(self, mainloop, glade_path):
-		self.mainloop = mainloop
+class Interface(GObject.Object):
+	__gsignals__ = {
+		'open-url':			(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_STRING,)),
+		'play':				(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ()),
+		'pause':			(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ()),
+		'rewind':			(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_INT,)),
+		'forward':			(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_INT,)),
+		'stop':				(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ()),
+		'seek':				(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT,)),
+		'change-volume':	(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT,)),
+		'quit':				(GObject.SIGNAL_RUN_LAST,  GObject.TYPE_NONE, ())
+	}
+	
+	def __init__(self, glade_path):
+		super().__init__()
 		
 		self.builder = Gtk.Builder()
 		self.builder.add_from_file(glade_path)
@@ -58,19 +62,12 @@ class Interface:
 		
 		self.main_window.connect('window-state-event', self.window_state_event)
 		
-		self.player = Gst.ElementFactory.make("playbin", "player")
-		bus = self.player.get_bus()
-		bus.add_signal_watch()
-		bus.enable_sync_message_emission()
-		bus.connect("message", self.on_message)
-		bus.connect("sync-message::element", self.on_sync_message)
-		
 		self.progressbar.set_fraction(0)
-		self.change_volume()
-		GLib.timeout_add(1000, self.elapsing_progress)
+		self.progresstext.set_text("")
 		
+		self.duration = 0
 		self.is_fullscreen = False
-		self.last_player_state = None
+		self.last_player_state = PlayerState.UNKNOWN
 		self.suppress_pause_toggle = False
 		self.suppress_fullscreen_toggle = False
 	
@@ -82,8 +79,8 @@ class Interface:
 	
 	@idle_add
 	def quit(self, *args):
-		GLib.idle_add(self.player.set_state, Gst.State.NULL)
-		self.mainloop.quit()
+		self.emit('stop')
+		self.emit('quit')
 	
 	def window_state_event(self, mainwindow, event):
 		new_fullscreen = bool(event.new_window_state & Gdk.WindowState.FULLSCREEN)
@@ -101,17 +98,13 @@ class Interface:
 			self.address_box.set_visible(False)
 			self.progress_box.set_visible(True)
 			self.button_box.set_visible(True)
-			GLib.timeout_add(5000, self.hide_elements)
-	
-	def hide_elements(self, *args):
-		self.update_interface_visibility()
-		return False
+			GLib.timeout_add(5000, (lambda: self.update_interface_visibility() and False))
 	
 	@idle_add
 	def fullscreen(self, *args):
-		if self.player.target_state == Gst.State.PLAYING:
+		if self.last_player_state == PlayerState.PLAYING:
 			self.movie_window.grab_focus()
-		elif self.player.target_state == Gst.State.PAUSED:
+		elif self.last_player_state == PlayerState.PAUSED:
 			self.pausebutton.grab_focus()
 		
 		if self.suppress_fullscreen_toggle:
@@ -127,7 +120,7 @@ class Interface:
 	
 	@idle_add
 	def update_interface_visibility(self):
-		if self.player.target_state in [Gst.State.PLAYING, Gst.State.PAUSED]:
+		if self.last_player_state in [PlayerState.PLAYING, PlayerState.PAUSED]:
 			self.show_player_tab()
 		else:
 			self.show_webview_tab()
@@ -137,12 +130,12 @@ class Interface:
 			self.address_box.set_visible(True)
 			self.progress_box.set_visible(True)
 			self.button_box.set_visible(True)
-		elif self.player.target_state == Gst.State.PLAYING:
+		elif self.last_player_state == PlayerState.PLAYING:
 			self.movie_window.get_window().set_cursor(Gdk.Cursor(Gdk.CursorType.BLANK_CURSOR))
 			self.address_box.set_visible(False)
 			self.progress_box.set_visible(False)
 			self.button_box.set_visible(False)
-		elif self.player.target_state == Gst.State.PAUSED:
+		elif self.last_player_state == PlayerState.PAUSED:
 			self.movie_window.get_window().set_cursor(Gdk.Cursor(Gdk.CursorType.ARROW))
 			self.address_box.set_visible(False)
 			self.progress_box.set_visible(True)
@@ -152,24 +145,19 @@ class Interface:
 			self.address_box.set_visible(True)
 			self.progress_box.set_visible(True)
 			self.button_box.set_visible(True)
+		
+		if self.last_player_state == PlayerState.PAUSED and not self.pausebutton.get_active():
+			self.suppress_pause_toggle = True
+			self.pausebutton.set_active(True)
+		elif self.last_player_state != PlayerState.PAUSED and self.pausebutton.get_active():
+			self.suppress_pause_toggle = True
+			self.pausebutton.set_active(False)
 	
 	@idle_add
 	def open_url(self, *args):
-		from pathlib import Path
-		
-		self.player.set_state(Gst.State.NULL)
-		
 		uri = self.entry1.get_text().strip()
-		
-		filepath = Path(uri)
-		if filepath.is_file():
-			self.player.set_property('uri', filepath.absolute().as_uri())
-		else:
-			self.player.set_property('uri', uri)
-		
-		self.pause()
+		self.emit('open-url', uri)
 		self.pausebutton.grab_focus()
-		GLib.timeout_add(500, self.seek, 0)
 	
 	@idle_add
 	def play(self, *args):
@@ -178,16 +166,14 @@ class Interface:
 			self.suppress_pause_toggle = True
 			self.pausebutton.set_active(False)
 		self.change_volume()
-		self.player.set_state(Gst.State.PLAYING)
-		self.elapsing_progress()
+		self.emit('play')
 	
 	@idle_add
 	def pause(self, *args):
 		if not self.pausebutton.get_active():
 			self.suppress_pause_toggle = True
 			self.pausebutton.set_active(True)
-		self.player.set_state(Gst.State.PAUSED)
-		self.elapsing_progress()
+		self.emit('pause')
 	
 	@idle_add
 	def toggle(self, *args):
@@ -206,43 +192,37 @@ class Interface:
 			self.suppress_pause_toggle = True
 			self.pausebutton.set_active(False)
 		
-		self.player.set_state(Gst.State.NULL)
+		self.emit('stop')
 		self.progressbar.set_fraction(0)
 		self.progresstext.set_text("")
-		self.last_player_state = None
+		self.last_player_state = PlayerState.UNKNOWN
 		self.update_interface_visibility()
 	
 	@idle_add
 	def change_volume(self, *args):
 		new_volume = self.volumebutton1.get_value()
-		self.player.set_property('volume', new_volume)
+		self.emit('change-volume', new_volume)
 	
 	@idle_add
 	def rewind(self, *args):
-		current = self.player.query_position(Gst.Format.TIME)[1] / Gst.SECOND
-		self.seek(current - 5)
+		self.emit('rewind', 5)
 	
 	@idle_add
 	def forward(self, *args):
-		current = self.player.query_position(Gst.Format.TIME)[1] / Gst.SECOND
-		self.seek(current + 5)
+		self.emit('forward', 5)
 	
 	def seek(self, position):
-		print("seek to:", position)
-		self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, Gst.SECOND * position)
+		self.emit('seek', position)
 	
-	def elapsing_progress(self):
-		if self.player.target_state not in [Gst.State.PLAYING, Gst.State.PAUSED]: return True
-		current = self.player.query_position(Gst.Format.TIME)[1] / Gst.SECOND
-		duration = self.player.query_duration(Gst.Format.TIME)[1] / Gst.SECOND
-		#print("position:", current, duration, current / duration)
+	@idle_add
+	def current_position(self, position, duration):
+		self.duration = duration
 		if duration > 0.00001:
-			self.progressbar.set_fraction(current / duration)
-			self.progresstext.set_text(str(int(current)) + " / " + str(int(duration)))
+			self.progressbar.set_fraction(position / duration)
+			self.progresstext.set_text(str(int(position)) + " / " + str(int(duration)))
 		else:
 			self.progressbar.set_fraction(0)
 			self.progresstext.set_text("")
-		return True
 	
 	@idle_add
 	def progress_mouse(self, widget, event):
@@ -252,37 +232,21 @@ class Interface:
 		except ZeroDivisionError:
 			return
 		self.progressbar.set_fraction(seek_perc)
-		duration = self.player.query_duration(Gst.Format.TIME)[1] / Gst.SECOND
-		self.progresstext.set_text(str(duration * seek_perc) + " / " + str(int(duration)))
+		duration = self.duration
+		self.progresstext.set_text(str(int(duration * seek_perc)) + " / " + str(int(duration)))
 		
 		print("progressbar:", x, self.progressbar.get_allocated_width(), seek_perc, duration, duration * seek_perc)
 		
 		self.seek(duration * seek_perc)
 	
-	@idle_add
-	def on_message(self, bus, message):
-		t = message.type
-		if t == Gst.MessageType.EOS:
-			GLib.idle_add(self.progressbar.set_fraction, 1.0)
-			self.pause()
-		elif t == Gst.MessageType.ERROR:
-			err, debug = message.parse_error()
-			print("Error:", err, debug)
-			self.stop()
-		elif t == Gst.MessageType.STATE_CHANGED:
-			if self.last_player_state != self.player.target_state:
-				#print(self.player.target_state)
-				self.last_player_state = self.player.target_state
-				self.update_interface_visibility()
+	def player_state_changed(self, new_state):
+		if self.last_player_state != new_state:
+			print(self.last_player_state)
+			self.last_player_state = PlayerState(new_state)
+			self.update_interface_visibility()
 	
-	@idle_add
-	def on_sync_message(self, bus, message):
-		if message.get_structure().get_name() == 'prepare-window-handle':
-			imagesink = message.src
-			imagesink.set_property("force-aspect-ratio", True)
-			xid = self.movie_window.get_property('window').get_xid()
-			print("xid", xid)
-			imagesink.set_window_handle(xid)
+	def get_window_xid(self):
+		return self.movie_window.get_property('window').get_xid()
 	
 	def main_window_keydown(self, widget, event):
 		if event.keyval == 65307: # escape
@@ -326,11 +290,16 @@ class Interface:
 	def show_webview_tab(self):
 		self.notebook1.set_current_page(1)
 
+GObject.type_register(Interface)
+
 
 if __name__ == '__main__':
 	import sys, signal
 	from pathlib import Path
-		
+	from utils import idle_add
+	
+	GLib.threads_init()
+	
 	path = Path('')
 	
 	css = Gtk.CssProvider()
@@ -340,17 +309,27 @@ if __name__ == '__main__':
 		css.load_from_path(str(path / 'style-3.18.css'))
 	Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), css, Gtk.STYLE_PROVIDER_PRIORITY_USER)
 	
-	mainloop = GLib.MainLoop()
-	
-	interface = Interface(mainloop, str(path / 'videoplayer.glade'))
+	interface = Interface(str(path / 'videoplayer.glade'))
 	interface.main_window.show_all()
-	interface.show_webview_tab()
 	
-	signal.signal(signal.SIGTERM, lambda signum, frame: mainloop.quit())
-	sys.excepthook = lambda *args: (sys.__excepthook__(*args), mainloop.quit())
+	interface.connect('open-url', lambda iface, url: print("open-url", url))
+	interface.connect('play', lambda iface: print("play"))
+	interface.connect('pause', lambda iface: print("pause"))
+	interface.connect('rewind', lambda iface, seconds: print("rewind", seconds))
+	interface.connect('forward', lambda iface, seconds: print("forward", seconds))
+	interface.connect('stop', lambda iface: print("stop"))
+	interface.connect('seek', lambda iface, position: print("seek", position))
+	interface.connect('change-volume', lambda iface, volume: print("change-volume", volume))
+	interface.connect('quit', lambda iface: Gtk.main_quit())
+	
+	@idle_add
+	def enable_exceptions():
+		signal.signal(signal.SIGTERM, lambda signum, frame: Gtk.main_quit())
+		sys.excepthook = lambda *args: (sys.__excepthook__(*args), Gtk.main_quit())
+	enable_exceptions()
 	
 	try:
-		mainloop.run()
+		Gtk.main()
 	except KeyboardInterrupt:
 		print()
 
