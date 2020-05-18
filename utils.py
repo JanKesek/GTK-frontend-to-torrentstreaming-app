@@ -28,19 +28,15 @@ __version__ = '0.0'
 __status__ = 'alpha'
 
 
-__all__ = 'idle_add', 'PlayerState'
+__all__ = 'idle_add', 'PlayerState', 'pastebin_upload', 'enable_exceptions', 'report_exceptions'
 
 
 from enum import IntEnum
 
-import gi
-
-gi.require_version('Gtk', '3.0')
-
-from gi.repository import GLib
-
 
 def idle_add(old_func):
+	from gi.repository import GLib
+	
 	def new_func(*args):
 		GLib.idle_add(old_func, *args)
 	new_func.__name__ = old_func.__name__
@@ -54,4 +50,48 @@ class PlayerState(IntEnum):
 	READY = 2
 	PAUSED = 3
 	PLAYING = 4
+
+
+def pastebin_upload(log_file):
+	import urllib.request, urllib.parse
+	
+	dev_key = 'cb1bb13415c48e868213c7253ea06e04'
+	user_key = 'cb99289ff5d20683b59051f1fecb3e69'
+	
+	data = urllib.parse.urlencode({'api_dev_key':dev_key, 'api_user_key':user_key, 'api_paste_code':log_file.read_text(), 'api_option':'paste', 'api_paste_private':'0', 'api_paste_name':str(log_file), 'api_paste_expire_date':'1D', 'api_paste_format':'text'}).encode('utf-8')
+	with urllib.request.urlopen('https://pastebin.com/api/api_post.php', data) as result:
+		return result.read().decode('utf-8')
+
+
+exception_data = None
+
+
+def enable_exceptions(log):
+	import sys, signal
+	from gi.repository import Gtk
+	
+	signal.signal(signal.SIGTERM, lambda signum, frame: Gtk.main_quit())
+	def intercept_exception(*args):
+		sys.excepthook = sys.__excepthook__
+		global exception_data
+		exception_data = args
+		log.critical("Exception: %s", args[1])
+		log.debug("posting Gtk.main_quit")
+		Gtk.main_quit()
+		log.debug("posted Gtk.main_quit")
+	sys.excepthook = intercept_exception
+
+
+def report_exceptions(log, log_file=None):
+	import sys, traceback, logging
+	
+	if exception_data:
+		for line in traceback.format_exception(*exception_data):
+			log.error(line)
+		logging.shutdown()
+		
+		if log_file:
+			pastebin_upload(log_file)
+		
+		sys.__excepthook__(*exception_data)
 

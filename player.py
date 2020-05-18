@@ -168,13 +168,16 @@ GObject.type_register(Player)
 
 
 if __name__ == '__main__':
-	import sys, signal
 	from pathlib import Path
-	from utils import idle_add
+	from utils import idle_add, enable_exceptions, report_exceptions
 	
 	gi.require_version('Gtk', '3.0')
 	
 	from gi.repository import Gtk, Gdk
+	
+	log_file = Path('/tmp/mediakilla-player.log')
+	logging.basicConfig(filename=str(log_file), filemode='w')
+	log.info("Start: %s", time.strftime('%Y-%m-%d %H:%M:%S'))
 	
 	window = Gtk.Window()
 	vbox = Gtk.VBox()
@@ -201,20 +204,25 @@ if __name__ == '__main__':
 	player.connect('state-changed', lambda plyr, state: print("state-changed", state))
 	player.connect('current-position', lambda plyer, position, duration: print("current-position", position, duration))
 	player.connect('xid-needed', lambda plyer: window.get_property('window').get_xid())
+	player.connect('eos', lambda plyr, state: print("eos"))
 	
 	window.connect('destroy', lambda win: Gtk.main_quit())
 	
 	player.open_url('examplewebm')
 	player.play()
 	
-	@idle_add
-	def enable_exceptions():
-		signal.signal(signal.SIGTERM, lambda signum, frame: Gtk.main_quit())
-		sys.excepthook = lambda *args: (sys.__excepthook__(*args), Gtk.main_quit())
-	enable_exceptions()
-		
+	idle_add(enable_exceptions)(log)
+	
 	try:
 		Gtk.main()
 	except KeyboardInterrupt:
 		print()
+	
+	#Gst.deinit()
+	
+	log.info("Stop: %s", time.strftime('%Y-%m-%d %H:%M:%S'))
+	
+	report_exceptions(log, log_file)
+
+
 

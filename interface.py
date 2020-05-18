@@ -125,23 +125,25 @@ class Interface(GObject.Object):
 		else:
 			self.show_webview_tab()
 		
+		movie_gdk_window = self.movie_window.get_window()
+		
 		if not self.is_fullscreen:
-			self.movie_window.get_window().set_cursor(Gdk.Cursor(Gdk.CursorType.ARROW))
+			if movie_gdk_window: movie_gdk_window.set_cursor(Gdk.Cursor(Gdk.CursorType.ARROW))
 			self.address_box.set_visible(True)
 			self.progress_box.set_visible(True)
 			self.button_box.set_visible(True)
 		elif self.last_player_state == PlayerState.PLAYING:
-			self.movie_window.get_window().set_cursor(Gdk.Cursor(Gdk.CursorType.BLANK_CURSOR))
+			if movie_gdk_window: movie_gdk_window.set_cursor(Gdk.Cursor(Gdk.CursorType.BLANK_CURSOR))
 			self.address_box.set_visible(False)
 			self.progress_box.set_visible(False)
 			self.button_box.set_visible(False)
 		elif self.last_player_state == PlayerState.PAUSED:
-			self.movie_window.get_window().set_cursor(Gdk.Cursor(Gdk.CursorType.ARROW))
+			if movie_gdk_window: movie_gdk_window.set_cursor(Gdk.Cursor(Gdk.CursorType.ARROW))
 			self.address_box.set_visible(False)
 			self.progress_box.set_visible(True)
 			self.button_box.set_visible(True)
 		else:
-			self.movie_window.get_window().set_cursor(Gdk.Cursor(Gdk.CursorType.ARROW))
+			if movie_gdk_window: movie_gdk_window.set_cursor(Gdk.Cursor(Gdk.CursorType.ARROW))
 			self.address_box.set_visible(True)
 			self.progress_box.set_visible(True)
 			self.button_box.set_visible(True)
@@ -294,9 +296,12 @@ GObject.type_register(Interface)
 
 
 if __name__ == '__main__':
-	import sys, signal
 	from pathlib import Path
-	from utils import idle_add
+	from utils import idle_add, enable_exceptions, report_exceptions
+	
+	log_file = Path('/tmp/mediakilla-interface.log')
+	logging.basicConfig(filename=str(log_file), filemode='w')
+	log.info("Start: %s", time.strftime('%Y-%m-%d %H:%M:%S'))
 	
 	GLib.threads_init()
 	
@@ -322,14 +327,16 @@ if __name__ == '__main__':
 	interface.connect('change-volume', lambda iface, volume: print("change-volume", volume))
 	interface.connect('quit', lambda iface: Gtk.main_quit())
 	
-	@idle_add
-	def enable_exceptions():
-		signal.signal(signal.SIGTERM, lambda signum, frame: Gtk.main_quit())
-		sys.excepthook = lambda *args: (sys.__excepthook__(*args), Gtk.main_quit())
-	enable_exceptions()
+	idle_add(enable_exceptions)(log)
 	
 	try:
 		Gtk.main()
 	except KeyboardInterrupt:
 		print()
+	
+	log.info("Stop: %s", time.strftime('%Y-%m-%d %H:%M:%S'))
+	
+	report_exceptions(log, log_file)
+
+
 

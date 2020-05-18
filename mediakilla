@@ -92,7 +92,7 @@ def find_installation_path():
 
 
 def create_webview(default_url):
-	log.info("Creatinv webview.")
+	log.info("Creating webview.")
 	webview = WebKit2.WebView()
 	webview.set_margin_top(54)
 	webview.set_margin_bottom(54)
@@ -102,12 +102,13 @@ def create_webview(default_url):
 
 
 if __name__ == '__main__':
-	from utils import idle_add
-	import traceback, time
+	from utils import idle_add, enable_exceptions, report_exceptions
+	import time
 	
-	logging.basicConfig(filename='mediakilla.log', filemode='w')
-	
+	log_file = Path('/tmp/mediakilla.log')
+	logging.basicConfig(filename=str(log_file), filemode='w')
 	log.info("Start: %s", time.strftime('%Y-%m-%d %H:%M:%S'))
+	log.info("version: %s (status %s)", __version__, __status__)
 	
 	GLib.threads_init()
 	Gst.init(sys.argv)
@@ -152,36 +153,23 @@ if __name__ == '__main__':
 	player.connect('current-position', lambda plyer, position, duration: interface.current_position(position, duration))
 	player.connect('xid-needed', lambda plyer: interface.get_window_xid())
 	
-	exception_data = None
-	
-	@idle_add
-	def enable_exceptions():
-		signal.signal(signal.SIGTERM, lambda signum, frame: Gtk.main_quit())
-		def intercept_exception(*args):
-			sys.excepthook = sys.__excepthook__
-			global exception_data
-			exception_data = args
-			log.critical("Exception: %s", args[1])
-			Gtk.main_quit()
-		sys.excepthook = intercept_exception
-	
-	enable_exceptions()
+	idle_add(enable_exceptions)(log)
 	
 	#def test_exception():
 	#	raise RuntimeError("test exception")
-	#GLib.timeout_add(1000, test_exception)
+	#GLib.timeout_add(4000, test_exception)
 	
 	try:
 		Gtk.main()
 	except KeyboardInterrupt:
 		print()
 	
-	Gst.deinit()
+	log.debug("exit from Gtk.main")
+	#Gst.deinit()
 	
 	log.info("Stop: %s", time.strftime('%Y-%m-%d %H:%M:%S'))
 	
-	if exception_data:
-		for line in traceback.format_exception(*exception_data):
-			log.error(line)
-		sys.__excepthook__(*exception_data)
+	report_exceptions(log, log_file)
+
+
 
