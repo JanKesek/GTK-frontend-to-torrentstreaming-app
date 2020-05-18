@@ -58,7 +58,7 @@ elif not Gst.is_initialized():
 class Player(GObject.Object):
 	__gsignals__ = {
 		'xid-needed':		(GObject.SIGNAL_RUN_LAST, GObject.TYPE_INT,  ()),
-		'current-position':	(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_INT, GObject.TYPE_INT)),
+		'current-position':	(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT, GObject.TYPE_FLOAT)),
 		'state-changed':	(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_INT,)),
 		'eos':				(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ()),
 		'error':			(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_STRING, GObject.TYPE_STRING))
@@ -138,7 +138,6 @@ class Player(GObject.Object):
 	def on_message(self, bus, message):
 		t = message.type
 		if t == Gst.MessageType.EOS:
-			GLib.idle_add(self.progressbar.set_fraction, 1.0)
 			self.emit('eos')
 		elif t == Gst.MessageType.ERROR:
 			err, debug = message.parse_error()
@@ -177,6 +176,7 @@ GObject.type_register(Player)
 if __name__ == '__main__':
 	from pathlib import Path
 	from utils import idle_add, enable_exceptions, report_exceptions
+	import time
 	
 	gi.require_version('Gtk', '3.0')
 	
@@ -208,10 +208,10 @@ if __name__ == '__main__':
 	
 	player = Player()
 	
-	player.connect('state-changed', lambda plyr, state: print("state-changed", state))
-	player.connect('current-position', lambda plyer, position, duration: print("current-position", position, duration))
+	player.connect('state-changed', lambda plyr, state: log.info("state-changed %s", state))
+	player.connect('current-position', lambda plyer, position, duration: log.info("current-position %f %f", position, duration))
 	player.connect('xid-needed', lambda plyer: window.get_property('window').get_xid())
-	player.connect('eos', lambda plyr, state: print("eos"))
+	player.connect('eos', lambda plyr, state: log.info("eos"))
 	
 	window.connect('destroy', lambda win: Gtk.main_quit())
 	

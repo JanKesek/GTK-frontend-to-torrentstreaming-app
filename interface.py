@@ -52,8 +52,8 @@ class Interface(GObject.Object):
 		'open-url':			(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_STRING,)),
 		'play':				(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ()),
 		'pause':			(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ()),
-		'rewind':			(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_INT,)),
-		'forward':			(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_INT,)),
+		'rewind':			(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT,)),
+		'forward':			(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT,)),
 		'stop':				(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ()),
 		'seek':				(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT,)),
 		'change-volume':	(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT,)),
@@ -96,6 +96,10 @@ class Interface(GObject.Object):
 	def window_state_event(self, mainwindow, event):
 		new_fullscreen = bool(event.new_window_state & Gdk.WindowState.FULLSCREEN)
 		if self.is_fullscreen != new_fullscreen:
+			if new_fullscreen:
+				log.info("fullscreen")
+			else:
+				log.info("unfullscreen")
 			self.is_fullscreen = new_fullscreen
 			self.update_interface_visibility()
 			if new_fullscreen != self.fullscreen_button.get_active():
@@ -123,10 +127,10 @@ class Interface(GObject.Object):
 			return
 		
 		if self.fullscreen_button.get_active():
-			print("fullscreen")
+			log.debug("Fullscreen button pressed.")
 			self.main_window.fullscreen()
 		else:
-			print("unfullscreen")
+			log.debug("Fullscreen button unpressed.")
 			self.main_window.unfullscreen()
 	
 	@idle_add
@@ -248,7 +252,7 @@ class Interface(GObject.Object):
 		duration = self.duration
 		self.progresstext.set_text(str(int(duration * seek_perc)) + " / " + str(int(duration)))
 		
-		print("progressbar:", x, self.progressbar.get_allocated_width(), seek_perc, duration, duration * seek_perc)
+		log.debug("progressbar: x=%f width=%f percentage=%f duration=%f position=%f", x, self.progressbar.get_allocated_width(), seek_perc, duration, duration * seek_perc)
 		
 		self.seek(duration * seek_perc)
 	
@@ -291,7 +295,7 @@ class Interface(GObject.Object):
 			self.pausebutton.grab_focus()
 			return True
 		else:
-			print("movie_window_keydown", event.keyval)
+			log.debug("movie_window_keydown %d", event.keyval)
 		return False
 	
 	def movie_window_keyup(self, widget, event):
@@ -309,6 +313,7 @@ GObject.type_register(Interface)
 if __name__ == '__main__':
 	from pathlib import Path
 	from utils import idle_add, enable_exceptions, report_exceptions
+	import time
 	
 	log_file = Path('/tmp/mediakilla-interface.log')
 	logging.basicConfig(filename=str(log_file), filemode='w')
@@ -328,14 +333,14 @@ if __name__ == '__main__':
 	interface = Interface(str(path / 'videoplayer.glade'))
 	interface.main_window.show_all()
 	
-	interface.connect('open-url', lambda iface, url: print("open-url", url))
-	interface.connect('play', lambda iface: print("play"))
-	interface.connect('pause', lambda iface: print("pause"))
-	interface.connect('rewind', lambda iface, seconds: print("rewind", seconds))
-	interface.connect('forward', lambda iface, seconds: print("forward", seconds))
-	interface.connect('stop', lambda iface: print("stop"))
-	interface.connect('seek', lambda iface, position: print("seek", position))
-	interface.connect('change-volume', lambda iface, volume: print("change-volume", volume))
+	interface.connect('open-url', lambda iface, url: log.info("open-url %s", url))
+	interface.connect('play', lambda iface: log.info("play"))
+	interface.connect('pause', lambda iface: log.info("pause"))
+	interface.connect('rewind', lambda iface, seconds: log.info("rewind %f", seconds))
+	interface.connect('forward', lambda iface, seconds: log.info("forward %f", seconds))
+	interface.connect('stop', lambda iface: log.info("stop"))
+	interface.connect('seek', lambda iface, position: log.info("seek %f", position))
+	interface.connect('change-volume', lambda iface, volume: log.info("change-volume %f", volume))
 	interface.connect('quit', lambda iface: Gtk.main_quit())
 	
 	idle_add(enable_exceptions)(log)

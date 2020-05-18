@@ -154,6 +154,7 @@ if __name__ == '__main__':
 	player.connect('state-changed', lambda plyr, state: interface.player_state_changed(state))
 	player.connect('current-position', lambda plyer, position, duration: interface.current_position(position, duration))
 	player.connect('xid-needed', lambda plyer: interface.get_window_xid())
+	player.connect('eos', lambda plyer: interface.stop())
 	
 	idle_add(enable_exceptions)(log)
 	

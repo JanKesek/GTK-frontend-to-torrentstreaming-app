@@ -91,7 +91,7 @@ def report_exceptions(log, log_file=None):
 		logging.shutdown()
 		
 		if log_file:
-			pastebin_upload(log_file)
+			print(pastebin_upload(log_file))
 		
 		sys.__excepthook__(*exception_data)
 
