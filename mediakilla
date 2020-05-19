@@ -126,6 +126,7 @@ if __name__ == '__main__':
 		raise ImportError(f"Wrong version of module `interface`. Expected '{__version__}', got '{interface_version}'.")
 	
 	from player import Player, __version__ as player_version
+	from playertorrent import PlayerTorrent
 	if player_version != __version__:
 		raise ImportError(f"Wrong version of module `player`. Expected '{__version__}', got '{player_version}'.")
 	
@@ -141,7 +142,8 @@ if __name__ == '__main__':
 	
 	interface = Interface(str(path / 'videoplayer.glade'))
 	webview = create_webview('https://kukai.app/')
-	player = Player()
+	#player=Player()
+	player = PlayerTorrent()
 	
 	interface.notebook1.append_page(webview)
 	interface.show_webview_tab()
