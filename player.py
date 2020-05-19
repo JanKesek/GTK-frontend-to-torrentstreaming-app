@@ -14,6 +14,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>
 
+#    Copyright © 2020, haael.co.uk/prim LTD
+
 
 "Player view for MediaKilla."
 
@@ -21,7 +23,7 @@
 __author__ = "Janjk"
 __credits__ = ["haael <jid:haael@jabber.at>", "Janjk <jid:jklambda@jabber.hot-chilli.net>"]
 
-__copyright__ = "haael.co.uk/prim LTD"
+__copyright__ = "Copyright © 2020, haael.co.uk/prim LTD"
 __license__ = 'GPLv3+'
 
 __version__ = '0.0'
@@ -52,19 +54,22 @@ if __name__ == '__main__':
 	GLib.threads_init()
 	Gst.init(None)
 elif not Gst.is_initialized():
-	raise ImportError("GStreamer must be initialized with `Gst.init(sys.argv)` before you attempt to import this library.")
+	raise ImportError("GStreamer must be initialized with `Gst.init(sys.argv)` before you attempt to import this module.")
 
 
+@GObject.type_register
 class Player(GObject.Object):
 	__gsignals__ = {
 		'xid-needed':		(GObject.SIGNAL_RUN_LAST, GObject.TYPE_INT,  ()),
-		'current-position':	(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT, GObject.TYPE_FLOAT)),
-		'state-changed':	(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_INT,)),
-		'eos':				(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ()),
-		'error':			(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_STRING, GObject.TYPE_STRING))
+		'current-position':	(GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT, GObject.TYPE_FLOAT)),
+		'state-changed':	(GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_INT,)),
+		'eos':				(GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+		'error':			(GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_STRING, GObject.TYPE_STRING))
 	}
 	
 	def __init__(self):
+		log.info("Creating the player.")
+		
 		super().__init__()
 		
 		self.last_player_state = PlayerState.UNKNOWN
@@ -77,14 +82,14 @@ class Player(GObject.Object):
 		
 		conn1 = self.bus.connect('message', self.on_message)
 		conn2 = self.bus.connect('sync-message::element', self.on_sync_message)
+		self.bus_connections = frozenset([conn1, conn2])
 		
-		self.connections = frozenset([conn1, conn2])
-		self.position_sending = GLib.timeout_add(1000, (lambda: self.emit_current_position() or True))
+		self.position_sending = GLib.timeout_add(1000, self.emit_current_position)
 	
 	def __del__(self):
 		GLib.source_remove(self.position_sending)
-		for conn in self.connections:
-			self.disconnect(conn)
+		for conn in self.bus_connections:
+			self.bus.disconnect(conn)
 	
 	def open_url(self, uri):
 		from pathlib import Path
@@ -98,7 +103,6 @@ class Player(GObject.Object):
 			self.player.set_property('uri', uri)
 		
 		self.pause()
-		#GLib.timeout_add(500, self.seek, 0)
 	
 	def play(self):
 		self.player.set_state(Gst.State.PLAYING)
@@ -124,7 +128,7 @@ class Player(GObject.Object):
 		self.seek(current + seconds)
 	
 	def seek(self, position):
-		print("seek to:", position)
+		log.debug("seek to: %f", position)
 		self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, Gst.SECOND * position)
 	
 	def emit_current_position(self):
@@ -138,9 +142,11 @@ class Player(GObject.Object):
 	def on_message(self, bus, message):
 		t = message.type
 		if t == Gst.MessageType.EOS:
+			log.info("End of stream.")
 			self.emit('eos')
 		elif t == Gst.MessageType.ERROR:
 			err, debug = message.parse_error()
+			log.error("GStreamer error %s: %s.", err, debug)
 			self.emit('error', err, debug)
 			self.stop()
 		elif t == Gst.MessageType.STATE_CHANGED:
@@ -167,13 +173,11 @@ class Player(GObject.Object):
 			imagesink = message.src
 			imagesink.set_property('force-aspect-ratio', True)
 			xid = self.emit('xid-needed')
-			print("xid", xid)
+			log.debug("imagesink xid=%d", xid)
 			imagesink.set_window_handle(xid)
 
-GObject.type_register(Player)
 
-
-if __name__ == '__main__':
+if __debug__ and __name__ == '__main__':
 	from pathlib import Path
 	from utils import idle_add, enable_exceptions, report_exceptions
 	import time
@@ -209,9 +213,9 @@ if __name__ == '__main__':
 	player = Player()
 	
 	player.connect('state-changed', lambda plyr, state: log.info("state-changed %s", state))
-	player.connect('current-position', lambda plyer, position, duration: log.info("current-position %f %f", position, duration))
-	player.connect('xid-needed', lambda plyer: window.get_property('window').get_xid())
-	player.connect('eos', lambda plyr, state: log.info("eos"))
+	player.connect('current-position', lambda plyr, position, duration: log.info("current-position %f %f", position, duration))
+	player.connect('xid-needed', lambda plyr: window.get_property('window').get_xid())
+	player.connect('eos', lambda plyr: log.info("eos"))
 	
 	window.connect('destroy', lambda win: Gtk.main_quit())
 	
@@ -224,8 +228,6 @@ if __name__ == '__main__':
 		Gtk.main()
 	except KeyboardInterrupt:
 		print()
-	
-	#Gst.deinit()
 	
 	log.info("Stop: %s", time.strftime('%Y-%m-%d %H:%M:%S'))
 	

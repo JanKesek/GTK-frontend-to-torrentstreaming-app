@@ -14,6 +14,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>
 
+#    Copyright © 2020, haael.co.uk/prim LTD
+
 
 "User interface for MediaKilla."
 
@@ -21,7 +23,7 @@
 __author__ = "Janjk"
 __credits__ = ["haael <jid:haael@jabber.at>", "Janjk <jid:jklambda@jabber.hot-chilli.net>"]
 
-__copyright__ = "haael.co.uk/prim LTD"
+__copyright__ = "Copyright © 2020, haael.co.uk/prim LTD"
 __license__ = 'GPLv3+'
 
 __version__ = '0.0'
@@ -47,21 +49,22 @@ from gi.repository import GObject, Gtk, Gdk, GdkX11, GLib
 from utils import *
 
 
+@GObject.type_register
 class Interface(GObject.Object):
 	__gsignals__ = {
-		'open-url':			(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_STRING,)),
-		'play':				(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ()),
-		'pause':			(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ()),
-		'rewind':			(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT,)),
-		'forward':			(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT,)),
-		'stop':				(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ()),
-		'seek':				(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT,)),
-		'change-volume':	(GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT,)),
-		'quit':				(GObject.SIGNAL_RUN_LAST,  GObject.TYPE_NONE, ())
+		'open-url':			(GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_STRING,)),
+		'play':				(GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+		'pause':			(GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+		'rewind':			(GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT,)),
+		'forward':			(GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT,)),
+		'stop':				(GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+		'seek':				(GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT,)),
+		'change-volume':	(GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_FLOAT,)),
+		'quit':				(GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ())
 	}
 	
 	def __init__(self, glade_path):
-		log.info("Creating interface.")
+		log.info("Creating the interface.")
 		log.debug("Interface.__init__('%s')", glade_path)
 		
 		super().__init__()
@@ -258,7 +261,7 @@ class Interface(GObject.Object):
 	
 	def player_state_changed(self, new_state):
 		if self.last_player_state != new_state:
-			print(self.last_player_state)
+			log.debug("Player state changed to %s", self.last_player_state.name)
 			self.last_player_state = PlayerState(new_state)
 			self.update_interface_visibility()
 	
@@ -287,7 +290,7 @@ class Interface(GObject.Object):
 		return False
 	
 	def main_window_keyup(self, widget, event):
-		return event.keyval in [65307, 65480]
+		return event.keyval in [65307, 65480] # the same keycodes as in main_window_keydown
 	
 	def movie_window_keydown(self, widget, event):
 		if event.keyval == 32: # space
@@ -299,7 +302,7 @@ class Interface(GObject.Object):
 		return False
 	
 	def movie_window_keyup(self, widget, event):
-		return event.keyval in [32]
+		return event.keyval in [32] # the same keycodes as in movie_window_keydown
 	
 	def show_player_tab(self):
 		self.notebook1.set_current_page(0)
@@ -307,10 +310,8 @@ class Interface(GObject.Object):
 	def show_webview_tab(self):
 		self.notebook1.set_current_page(1)
 
-GObject.type_register(Interface)
 
-
-if __name__ == '__main__':
+if __debug__ and __name__ == '__main__':
 	from pathlib import Path
 	from utils import idle_add, enable_exceptions, report_exceptions
 	import time

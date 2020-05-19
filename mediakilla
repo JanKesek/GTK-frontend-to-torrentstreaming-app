@@ -14,6 +14,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>
 
+#    Copyright © 2020, haael.co.uk/prim LTD
+
 
 "BitTorrent videoplayer MediaKilla."
 
@@ -21,7 +23,7 @@
 __author__ = "haael"
 __credits__ = ["haael <jid:haael@jabber.at>", "Janjk <jid:jklambda@jabber.hot-chilli.net>"]
 
-__copyright__ = "haael.co.uk/prim LTD"
+__copyright__ = "Copyright © 2020, haael.co.uk/prim LTD"
 __license__ = 'GPLv3+'
 
 __version__ = '0.0'
@@ -65,6 +67,7 @@ def find_installation_path():
 	required_files = ['style-3.22.css', 'style-3.18.css', 'videoplayer.glade']
 	
 	if os.name == 'posix':
+		log.info("Detected system: POSIX.")
 		home_dir = Path.home()
 		for file_suffix, home_prefix, file_prefix, application_name in product(file_suffixes, home_prefixes_linux, file_prefixes_linux, application_names):
 			candidate_path = home_dir / home_prefix / (file_prefix + application_name + file_suffix)
@@ -77,6 +80,7 @@ def find_installation_path():
 			if all((candidate_path / filename).is_file() for filename in required_files):
 				return candidate_path
 	elif os.name == 'nt':
+		log.info("Detected system: Windows.")
 		home_dir = Path.home()
 		for file_suffix, home_prefix, application_name in product(file_suffixes, home_prefixes_windows, application_names):
 			candidate_path = home_dir / home_prefix / (application_name + file_suffix)
@@ -88,8 +92,10 @@ def find_installation_path():
 			log.debug("Candidate installation path: %s", candidate_path)
 			if all((candidate_path / filename).is_file() for filename in required_files):
 				return candidate_path
+	else:
+		log.warning("Unknown operating system '%s'.", os.name)
 	
-	log.debug("Exhausted candidate installation path.")
+	log.warning("Exhausted candidate installation path.")
 	return Path('')
 
 
@@ -168,7 +174,6 @@ if __name__ == '__main__':
 		print()
 	
 	log.debug("exit from Gtk.main")
-	#Gst.deinit()
 	
 	log.info("Stop: %s", time.strftime('%Y-%m-%d %H:%M:%S'))
 	
