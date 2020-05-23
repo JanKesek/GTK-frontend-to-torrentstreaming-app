@@ -68,13 +68,11 @@ class Player(GObject.Object):
 	}
 	
 	def __init__(self):
-		log.info("Creating the player.")
-		
 		super().__init__()
 		
 		self.last_player_state = PlayerState.UNKNOWN
 		
-		self.player = Gst.ElementFactory.make("playbin", "player")
+		self.player = self.create_pipeline()
 		
 		self.bus = self.player.get_bus()
 		self.bus.add_signal_watch()
@@ -87,9 +85,20 @@ class Player(GObject.Object):
 		self.position_sending = GLib.timeout_add(1000, self.emit_current_position)
 	
 	def __del__(self):
-		GLib.source_remove(self.position_sending)
-		for conn in self.bus_connections:
-			self.bus.disconnect(conn)
+		try:
+			GLib.source_remove(self.position_sending)
+		except AttributeError:
+			pass
+		
+		try:
+			for conn in self.bus_connections:
+				self.bus.disconnect(conn)
+		except AttributeError:
+			pass
+	
+	def create_pipeline(self):
+		log.info("Creating the player.")
+		return Gst.ElementFactory.make("playbin", "player")
 	
 	def open_url(self, uri):
 		from pathlib import Path
@@ -165,7 +174,8 @@ class Player(GObject.Object):
 			
 			if self.last_player_state != self.player.target_state:
 				self.last_player_state = self.player.target_state
-				self.emit('state-changed', int(self.last_player_state))
+				log.debug("Player state changed: %s", str(new_state))
+				self.emit('state-changed', int(new_state))
 	
 	@idle_add
 	def on_sync_message(self, bus, message):

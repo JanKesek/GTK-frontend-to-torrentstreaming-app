@@ -1,124 +1,184 @@
-import gi
-import logging
-from utils import *
-from gi.repository import Gst,Gtk, Gdk,GObject,GLib
+#!/usr/bin/python3
+#-*- coding: utf-8 -*-
 
-gi.require_version('Gtk', '3.0')
-	
-GLib.threads_init()
-Gst.init(None)
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>
+
+#    Copyright © 2020, haael.co.uk/prim LTD
+
+
+"Player view for MediaKilla."
+
+
+__author__ = "Janjk"
+__credits__ = ["haael <jid:haael@jabber.at>", "Janjk <jid:jklambda@jabber.hot-chilli.net>"]
+
+__copyright__ = "Copyright © 2020, haael.co.uk/prim LTD"
+__license__ = 'GPLv3+'
+
+__version__ = '0.0'
+__status__ = 'alpha'
+
+
+__all__ = 'Player',
+
+
+import logging
+
+log = logging.getLogger('playertorrent')
+log.setLevel(logging.DEBUG)
+if __debug__:
+	log.addHandler(logging.StreamHandler())
+
+import gi
+
+gi.require_version('Gst', '1.0')
+gi.require_version('GstVideo', '1.0')
+
+from gi.repository import GObject, GLib, Gst, GstVideo
+
+from utils import *
+
+
+if __name__ == '__main__':
+	GLib.threads_init()
+	Gst.init(None)
+elif not Gst.is_initialized():
+	raise ImportError("GStreamer must be initialized with `Gst.init(sys.argv)` before you attempt to import this module.")
+
 
 from player import Player
-from networking.bittorrent import start_download
-#command="appsrc emit-signals=True is-live=True \
-#caps=video/x-raw,format=RGB,width=640,height=480,framerate=30/1 ! \
-#queue max-size-buffers=4 ! videoconvert ! autovideosink"
-command="videotestsrc num-buffers=100 ! \
-capsfilter caps=video/x-raw,format=RGB,width=640,height=480 ! \
-appsink emit-signals=True"
 
-CAPS= "video/x-raw,format=RGB,width=640,height=480,framerate=30/1"
+
 @GObject.type_register
 class PlayerTorrent(Player):
-	def __init__(self):
-		#log.info("Creating the torrent player.")	
-		GObject.Object.__init__(self)
-		
-		
-		#self.player = Gst.ElementFactory.make("playbin", "player")
-		self.position_sending = GLib.timeout_add(1000, self.emit_current_position)
-		self.last_player_state = PlayerState.UNKNOWN
-
-		self.pipeline=Gst.Pipeline(command)
-		self.pipeline._on_pipeline_init=self.on_pipeline_init.__get__(self.pipeline)
-		#self.pipeline.startup()
-		self.bus = self.pipeline.get_bus()
-		self.bus.add_signal_watch()
-		self.bus.enable_sync_message_emission()
-		
-		conn1 = self.bus.connect('message', self.on_message)
-		conn2 = self.bus.connect('sync-message::element', self.on_sync_message)
-		self.bus_connections = frozenset([conn1, conn2])
-		self.offset=0
-	def open_url(self, uri):
-		start_download([uri])
-
-	def play(self):
-		print("PLAY FROM PLAYERTORRENT")
+	command = "appsrc name=AppSrc emit-signals=True is-live=False ! queue max-size-buffers=4 ! decodebin ! videoconvert ! autovideosink"
 	
-	def pause(self):
-		pass
-	def stop(self):
-		pass
-	def change_volume(self, volume):
-		pass
-	def rewind(self, seconds=5):
-		pass
+	def __init__(self):		
+		super().__init__()
+		
+		self.appsrc = self.player.get_by_name('AppSrc')
+		self.appsrc.set_property("format", Gst.Format.BYTES)
+		self.appsrc.set_property("block", False)
+		
+		self.appsrc.connect('need-data', self.need_data)
+		self.appsrc.connect('enough-data', self.enough_data)
+		self.appsrc.connect('seek-data', self.seek_data)
+		
+		self.data_needed = 0
+		self.data_sending = None
+		self.source_file = None
+	
+	def create_pipeline(self):
+		log.info("Creating the torrent player.")
+		return Gst.parse_launch(self.command)
+	
+	def open_url(self, uri):
+		#start_download([uri])
+		from pathlib import Path
+		
+		if self.source_file != None:
+			self.source_file.close()
+			self.source_file = None
+			self.file_size = 0
+		
+		path = Path(uri)
+		if path.is_file():
+			self.source_file = path.open('rb')
+			self.file_size = path.stat().st_size
+			try:
+				self.appsrc.set_stream_size(self.file_size)
+			except AttributeError:
+				pass
+	
+	def send_data(self, fd, condition):
+		#print("send_data", self.appsrc.get_property('max_bytes'), self.data_needed)
+		if GLib.IO_IN & condition:
+			chunk = self.source_file.read(min(self.appsrc.get_property('max_bytes'), self.data_needed))
+			if chunk:
+				#print("send_data: push buffer", len(chunk))
+				self.appsrc.emit('push_buffer', Gst.Buffer.new_wrapped(chunk))
+				self.data_needed -= len(chunk)
+				if self.data_needed <= 0:
+					self.data_needed = 0
+					self.data_sending = None
+					return False
+			else:
+				#print("send_data: end of stream")
+				self.appsrc.emit('end-of-stream')
+				self.data_needed = 0
+				self.data_sending = None
+				return False
+		elif (GLib.IO_HUP | GLib.IO_ERR) & condition:
+			#print("send_data: error")
+			self.source_file.close()
+			self.source_file = None
+			self.file_size = 0
+			self.appsrc.set_stream_size(0)
+			self.data_needed = 0
+			self.data_sending = None
+			return False
+		return True
+	
+	@idle_add
+	def need_data(self, appsrc, length):
+		#print("need_data", length)
+		self.data_needed += length
+		if self.data_sending == None:
+			self.data_sending = GLib.io_add_watch(self.source_file, GLib.IO_IN | GLib.IO_HUP | GLib.IO_ERR, self.send_data)
+	
+	@idle_add
+	def enough_data(self):
+		#print("enough_data")
+		if self.data_sending != None:
+			GLib.source_remove(self.data_sending)
+			self.data_sending = None
+			self.data_needed = 0
+	
+	@idle_add
+	def seek_data(self, offset):
+		#print("seek_data", appsrc)
+		if self.source_file != None:
+			self.source_file.seek(offset)
+	
+	#def on_pipeline_init(self):
+	#	print("on_pipeline_init")
+	#	
+	#	self.appsrc = self.get_by_cls(GstApp.AppSrc)[0]
+	#	self.appsrc.set_property("format", Gst.Format.BYTES)
+	#	self.appsrc.set_property("block", False)
+	#	#self.appsrc.set_caps(Gst.Caps.from_string(self.CAPS))
+	#	
+	#	self.appsrc.connect('need-data', self.data_needed)
+	#	self.appsrc.connect('enough-data', self.enough_data)
+	#	self.appsrc.connect('seek-data', self.seek_data)
+	#	
+	#	#self.appsrc.set_stream_size(self.file_size)
+	#	
+	#	#while not self.pipeline.is_done:
+	#	#	time.sleep(.1)
 
-	def forward(self, seconds=5):
-		pass
 
-	def seek(self, position):
-		pass
-
-	def emit_current_position(self):
-		pass
-
-	def extract_bytes_from_file(self,size):
-		with open("test_bittorrent/data/costam/file","rb") as bf:
-			bf.seek(self.offset,self.offset)
-			chunk=bf.file_read(size)
-			self.offset+=size
-			return chunk
-	def extract_buffer(self,sample) -> np.ndarray:
-    	buffer = sample.get_buffer()  # Gst.Buffer
-    	print(buffer.pts, buffer.dts, buffer.offset)
-
-    	caps_format = sample.get_caps().get_structure(0)  # Gst.Structure
-
-    	video_format = GstVideo.VideoFormat.from_string(caps_format.get_value('format'))
-		w, h = caps_format.get_value('width'), caps_format.get_value('height')
-    	c = utils.get_num_channels(video_format)
-
-    	buffer_size = buffer.get_size()
-		array=self.extract_bytes_from_file(buffer_size)
-		return array
-    #shape = (h, w, c) if (h * w * c == buffer_size) else buffer_size
-    #array = np.ndarray(shape=shape, buffer=buffer.extract_dup(0, buffer_size),
-    #                   dtype=utils.get_np_dtype(video_format))
-
-    	#return np.squeeze(array)  # remove single dimension if exists
-
-
-	#@idle_add
-	#def on_sync_message(self, bus, message):
-	#	pass
-	def on_buffer(self,sink, data):
-		sample = sink.emit("pull-sample")  # Gst.Sample
-		if isinstance(sample, Gst.Sample):
-			array = extract_buffer(sample)
-			print("Received {type} with shape {shape} of type {dtype}".format(type=type(array),
-                                                                        shape=array.shape,
-                                                                        dtype=array.dtype))
-			return Gst.FlowReturn.OK
-		return Gst.FlowReturn.ERROR		
-	def on_pipeline_init(self):
-		#self.appsrc=self.get_by_cls(GstApp.AppSrc)[0]
-		#self.appsrc.set_property("format", Gst.Format.TIME)        
-		#self.appsrc.set_property("block", True)
-		#self.appsrc.set_caps(Gst.Caps.from_string(CAPS))
-		self.appsink=self.get_by_cls(GstApp.AppSink)[0]
-		self.appsink.connect("new-sample",self.on_buffer)
-		while not self.pipeline.is_done:
-			time.sleep(.1)
 if __debug__ and __name__ == '__main__':
 	from pathlib import Path
 	from utils import idle_add, enable_exceptions, report_exceptions
 	import time
 	
-	log = logging.getLogger('player')
-
-	log_file = Path('/tmp/mediakilla-player.log')
+	gi.require_version('Gtk', '3.0')
+	
+	from gi.repository import Gtk, Gdk
+	
+	log_file = Path('/tmp/mediakilla-playertorrent.log')
 	logging.basicConfig(filename=str(log_file), filemode='w')
 	log.info("Start: %s", time.strftime('%Y-%m-%d %H:%M:%S'))
 	
