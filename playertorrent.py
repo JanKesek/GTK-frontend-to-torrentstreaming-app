@@ -17,7 +17,7 @@
 #    Copyright © 2020, haael.co.uk/prim LTD
 
 
-"Player view for MediaKilla."
+"Pipeline for MediaKilla, torrent player."
 
 
 __author__ = "Janjk"
@@ -30,7 +30,7 @@ __version__ = '0.0'
 __status__ = 'alpha'
 
 
-__all__ = 'Player',
+__all__ = 'PlayerTorrent',
 
 
 import logging
@@ -57,31 +57,54 @@ elif not Gst.is_initialized():
 	raise ImportError("GStreamer must be initialized with `Gst.init(sys.argv)` before you attempt to import this module.")
 
 
-from player import Player
+from player import Player, __version__ as player_version
+if player_version != __version__:
+	raise ImportError(f"Wrong version of module `player`. Expected '{__version__}', got '{player_version}'.")
 
 
 @GObject.type_register
 class PlayerTorrent(Player):
-	command = "appsrc name=AppSrc emit-signals=True is-live=False ! queue max-size-buffers=4 ! decodebin ! videoconvert ! autovideosink"
+	COMMAND = "appsrc name=AppSrc emit-signals=True is-live=False ! queue max-size-buffers=4 ! decodebin ! videoconvert ! autovideosink"
+	MAX_BUFFER_SIZE = 16 * 1024
 	
 	def __init__(self):		
 		super().__init__()
 		
 		self.appsrc = self.player.get_by_name('AppSrc')
-		self.appsrc.set_property("format", Gst.Format.BYTES)
-		self.appsrc.set_property("block", False)
+		self.appsrc.set_property('format', Gst.Format.BYTES)
+		self.appsrc.set_property('block', False)
 		
-		self.appsrc.connect('need-data', self.need_data)
-		self.appsrc.connect('enough-data', self.enough_data)
-		self.appsrc.connect('seek-data', self.seek_data)
+		conn1 = self.appsrc.connect('need-data', self.need_data)
+		conn2 = self.appsrc.connect('enough-data', self.enough_data)
+		conn3 = self.appsrc.connect('seek-data', self.seek_data)
+		
+		self.appsrc_connections = frozenset([conn1, conn2, conn3])
 		
 		self.data_needed = 0
 		self.data_sending = None
 		self.source_file = None
 	
+	def __del__(self):
+		try:
+			if self.data_sending != None:
+				GLib.source_remove(self.data_sending)
+		except AttributeError as error:
+			log.warning("Error in PlayerTorrent finalizer: %s", str(error))
+		
+		try:
+			for conn in self.appsrc_connections:
+				self.appsrc.disconnect(conn)
+		except AttributeError as error:
+			log.warning("Error in PlayerTorrent finalizer: %s", str(error))
+		
+		try:
+			super().__del__()
+		except AttributeError as error:
+			log.warning("Error in PlayerTorrent finalizer: %s", str(error))
+	
 	def create_pipeline(self):
 		log.info("Creating the torrent player.")
-		return Gst.parse_launch(self.command)
+		return Gst.parse_launch(self.COMMAND)
 	
 	def open_url(self, uri):
 		#start_download([uri])
@@ -101,45 +124,77 @@ class PlayerTorrent(Player):
 			except AttributeError:
 				pass
 	
+	def data_available(self, position):
+		"Number of bytes available at `position`. Returns 0 if none."
+		return 1024 * 4 # TODO: finish implementation
+	
+	@idle_add
+	def data_received(self, offset, length):
+		"Triggered when a block of data is received from Torrent."
+		if offset <= self.source_file.tell() < offset + length and self.data_needed > 0 and self.data_sending == None:
+			log.info("Received block at position %d (size %d), resuming playback.")
+			# TODO: emit `unchoke` signal
+			self.data_sending = GLib.io_add_watch(self.source_file, GLib.IO_IN | GLib.IO_HUP | GLib.IO_ERR, self.send_data)
+	
 	def send_data(self, fd, condition):
-		#print("send_data", self.appsrc.get_property('max_bytes'), self.data_needed)
+		log.debug("send_data: data_needed=%d", self.data_needed)
+		
 		if GLib.IO_IN & condition:
-			chunk = self.source_file.read(min(self.appsrc.get_property('max_bytes'), self.data_needed))
+			data_size = min(self.MAX_BUFFER_SIZE, self.data_available(self.source_file.tell()), self.appsrc.get_property('max_bytes'), self.data_needed)
+			
+			if data_size > 0:
+				chunk = self.source_file.read(data_size)
+			else:
+				log.info("No data available, pausing playback.")
+				# TODO: emit `choke` signal
+				self.data_sending = None
+				return False
+			
 			if chunk:
-				#print("send_data: push buffer", len(chunk))
+				log.debug("send_data: push buffer %d", len(chunk))
+				
 				self.appsrc.emit('push_buffer', Gst.Buffer.new_wrapped(chunk))
+				
 				self.data_needed -= len(chunk)
 				if self.data_needed <= 0:
 					self.data_needed = 0
 					self.data_sending = None
 					return False
 			else:
-				#print("send_data: end of stream")
+				log.info("send_data: Reached end of stream.")
+				
 				self.appsrc.emit('end-of-stream')
 				self.data_needed = 0
 				self.data_sending = None
 				return False
+		
 		elif (GLib.IO_HUP | GLib.IO_ERR) & condition:
-			#print("send_data: error")
+			log.error("send_data: Error while reading source file.")
+			
 			self.source_file.close()
 			self.source_file = None
 			self.file_size = 0
 			self.appsrc.set_stream_size(0)
 			self.data_needed = 0
 			self.data_sending = None
+			#TODO: emit error signal
 			return False
+		
 		return True
 	
 	@idle_add
 	def need_data(self, appsrc, length):
-		#print("need_data", length)
+		log.debug("need_data %d", length)
+		
 		self.data_needed += length
+		
 		if self.data_sending == None:
 			self.data_sending = GLib.io_add_watch(self.source_file, GLib.IO_IN | GLib.IO_HUP | GLib.IO_ERR, self.send_data)
 	
 	@idle_add
 	def enough_data(self):
-		#print("enough_data")
+		log.debug("enough_data")
+		
 		if self.data_sending != None:
 			GLib.source_remove(self.data_sending)
 			self.data_sending = None
@@ -147,7 +202,8 @@ class PlayerTorrent(Player):
 	
 	@idle_add
 	def seek_data(self, offset):
-		#print("seek_data", appsrc)
+		log.debug("seek_data %d", offset)
+		
 		if self.source_file != None:
 			self.source_file.seek(offset)
 	
@@ -183,13 +239,8 @@ if __debug__ and __name__ == '__main__':
 	log.info("Start: %s", time.strftime('%Y-%m-%d %H:%M:%S'))
 	
 	window = Gtk.Window()
-	vbox = Gtk.VBox()
 	drawingarea = Gtk.DrawingArea()
-	vbox.pack_end(drawingarea, 0, 0, 0)
-	hbox = Gtk.HBox()
-		
-	hbox.pack_end(vbox, 0, 0, 0)
-	
+	window.add(drawingarea)
 	window.show_all()
 	
 	player = PlayerTorrent()

@@ -125,10 +125,9 @@ if __name__ == '__main__':
 	if interface_version != __version__:
 		raise ImportError(f"Wrong version of module `interface`. Expected '{__version__}', got '{interface_version}'.")
 	
-	from player import Player, __version__ as player_version
-	from playertorrent import PlayerTorrent
-	if player_version != __version__:
-		raise ImportError(f"Wrong version of module `player`. Expected '{__version__}', got '{player_version}'.")
+	from playertorrent import PlayerTorrent, __version__ as playertorrent_version
+	if playertorrent_version != __version__:
+		raise ImportError(f"Wrong version of module `playertorrent`. Expected '{__version__}', got '{playertorrent_version}'.")
 	
 	path = find_installation_path()
 	log.info("Using installation path: %s", path)
@@ -142,7 +141,6 @@ if __name__ == '__main__':
 	
 	interface = Interface(str(path / 'videoplayer.glade'))
 	webview = create_webview('https://kukai.app/')
-	#player=Player()
 	player = PlayerTorrent()
 	
 	interface.notebook1.append_page(webview)

@@ -53,7 +53,7 @@ class PlayerState(IntEnum):
 
 
 def pastebin_upload(log_file):
-	"Upload the contents of `log_file` (of type `Path`) to pastebin.com."
+	"Upload the contents of the file under the path `log_file` to pastebin.com."
 	
 	import urllib.request, urllib.parse
 	
@@ -66,7 +66,7 @@ def pastebin_upload(log_file):
 		'api_user_key' :user_key,
 		'api_paste_code': log_file.read_text(),
 		'api_option': 'paste',
-		'api_paste_private': '0',
+		'api_paste_private': '1',
 		'api_paste_name': str(log_file),
 		'api_paste_expire_date': '1D',
 		'api_paste_format': 'text'
@@ -104,7 +104,9 @@ def report_exceptions(log, log_file=None):
 		logging.shutdown()
 		
 		if log_file:
+			print("Uploading log to Pastebin.")
 			print(pastebin_upload(log_file))
+			print()
 		
 		sys.__excepthook__(*exception_data)
 

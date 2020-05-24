@@ -87,14 +87,14 @@ class Player(GObject.Object):
 	def __del__(self):
 		try:
 			GLib.source_remove(self.position_sending)
-		except AttributeError:
-			pass
+		except AttributeError as error:
+			log.warning("Error in Player finalizer: %s", str(error))
 		
 		try:
 			for conn in self.bus_connections:
 				self.bus.disconnect(conn)
-		except AttributeError:
-			pass
+		except AttributeError as error:
+			log.warning("Error in Player finalizer: %s", str(error))
 	
 	def create_pipeline(self):
 		log.info("Creating the player.")
@@ -201,31 +201,16 @@ if __debug__ and __name__ == '__main__':
 	log.info("Start: %s", time.strftime('%Y-%m-%d %H:%M:%S'))
 	
 	window = Gtk.Window()
-	vbox = Gtk.VBox()
 	drawingarea = Gtk.DrawingArea()
-	vbox.pack_end(drawingarea, 0, 0, 0)
-	hbox = Gtk.HBox()
-	
-	#interface.connect('open-url', lambda iface, url: player.open_url(url))
-	#interface.connect('play', lambda iface: player.play())
-	#interface.connect('pause', lambda iface: player.pause())
-	#interface.connect('rewind', lambda iface, seconds: player.rewind(seconds))
-	#interface.connect('forward', lambda iface, seconds: player.forward(seconds))
-	#interface.connect('stop', lambda iface: player.stop())
-	#interface.connect('seek', lambda iface, position: player.seek(position))
-	#interface.connect('change-volume', lambda iface, volume: player.change_volume(volume))
-	#interface.connect('quit', lambda iface: Gtk.main_quit())
-	
-	hbox.pack_end(vbox, 0, 0, 0)
-	
+	window.add(drawingarea)
 	window.show_all()
 	
 	player = Player()
 	
-	player.connect('state-changed', lambda plyr, state: log.info("state-changed %s", state))
-	player.connect('current-position', lambda plyr, position, duration: log.info("current-position %f %f", position, duration))
+	player.connect('state-changed', lambda plyr, state: log.info("Signal: state-changed %s", state))
+	player.connect('current-position', lambda plyr, position, duration: log.info("Signal: current-position %f %f", position, duration))
 	player.connect('xid-needed', lambda plyr: window.get_property('window').get_xid())
-	player.connect('eos', lambda plyr: log.info("eos"))
+	player.connect('eos', lambda plyr: log.info("Signal: eos"))
 	
 	window.connect('destroy', lambda win: Gtk.main_quit())
 	
