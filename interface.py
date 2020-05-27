@@ -215,6 +215,7 @@ class Interface(GObject.Object):
 		self.emit('stop')
 		self.progressbar.set_fraction(0)
 		self.progresstext.set_text("")
+		log.debug("Setting player state to UNKNOWN")
 		self.last_player_state = PlayerState.UNKNOWN
 		self.update_interface_visibility()
 	

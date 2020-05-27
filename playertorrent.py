@@ -39,13 +39,15 @@ log = logging.getLogger('playertorrent')
 log.setLevel(logging.DEBUG)
 if __debug__:
 	log.addHandler(logging.StreamHandler())
+log_verbose = True
 
 import gi
 
 gi.require_version('Gst', '1.0')
+gi.require_version('GstApp', '1.0')
 gi.require_version('GstVideo', '1.0')
 
-from gi.repository import GObject, GLib, Gst, GstVideo
+from gi.repository import GObject, GLib, Gst, GstVideo, GstApp
 
 from utils import *
 
@@ -64,20 +66,12 @@ if player_version != __version__:
 
 @GObject.type_register
 class PlayerTorrent(Player):
-	#COMMAND = "appsrc name=AppSrc emit-signals=True is-live=False ! queue max-size-buffers=4 ! decodebin ! videoconvert ! autovideosink"
-	#COMMAND = "appsrc name=AppSrc emit-signals=True is-live=False ! queue max-size-buffers=4 ! decodebin name=dec \ dec. ! videoconvert ! autovideosink .dec \
-	#			queue ! audioconvert ! audioresample ! autoaudiosink \ dec."
-	#COMMAND = """
-	#	appsrc name=AppSrc emit-signals=true is-live=true ! 
-#		qtdemux name=demuxer  demuxer. ! queue ! avdec_h264 ! autovideosink  demuxer.audio_0 !  queue ! audioconvert ! audioresample ! volume volume=0.5 ! autoaudiosink
-#				"""
-	COMMAND= """
-	appsrc name=AppSrc emit-signals=true is-live=false ! typefind ! qtdemux name=demuxer \
-	demuxer. ! videoconvert ! queue ! autovideosink \
-	demuxer.audio_0 ! audioconvert ! queue ! volume volume=5  ! autoaudiosink 
-		"""
-
-	#demuxer.decodebin
+	COMMAND = """
+		appsrc name=AppSrc ! decodebin3 name=DecodeBin \
+		DecodeBin. ! videoconvert ! autovideosink \
+		DecodeBin. ! audioconvert ! volume name=Volume ! autoaudiosink
+	"""
+	
 	MAX_BUFFER_SIZE = 16 * 1024
 	
 	def __init__(self):		
@@ -86,16 +80,25 @@ class PlayerTorrent(Player):
 		self.appsrc = self.player.get_by_name('AppSrc')
 		self.appsrc.set_property('format', Gst.Format.BYTES)
 		self.appsrc.set_property('block', False)
+		self.appsrc.set_property('emit-signals', True)
+		self.appsrc.set_property('is-live', False)
+		self.appsrc.set_property('stream-type', GstApp.AppStreamType.SEEKABLE)
 		
-		conn1 = self.appsrc.connect('need-data', self.need_data)
-		conn2 = self.appsrc.connect('enough-data', self.enough_data)
-		conn3 = self.appsrc.connect('seek-data', self.seek_data)
+		asconn1 = self.appsrc.connect('need-data', self.need_data)
+		asconn2 = self.appsrc.connect('enough-data', self.enough_data)
+		asconn3 = self.appsrc.connect('seek-data', self.seek_data)
+		self.appsrc_connections = frozenset([asconn1, asconn2, asconn3])
 		
-		self.appsrc_connections = frozenset([conn1, conn2, conn3])
+		self.decodebin = self.player.get_by_name('DecodeBin')
+		dbconn1 = self.decodebin.connect('select-stream', self.select_stream)
+		self.decodebin_connections = frozenset([dbconn1])
+		
+		self.volume = self.player.get_by_name('Volume')
 		
 		self.data_needed = 0
 		self.data_sending = None
 		self.source_file = None
+		self.file_size = 0
 	
 	def __del__(self):
 		try:
@@ -111,6 +114,12 @@ class PlayerTorrent(Player):
 			log.warning("Error in PlayerTorrent finalizer: %s", str(error))
 		
 		try:
+			for conn in self.decodebin_connections:
+				self.decodebin.disconnect(conn)
+		except AttributeError as error:
+			log.warning("Error in PlayerTorrent finalizer: %s", str(error))
+		
+		try:
 			super().__del__()
 		except AttributeError as error:
 			log.warning("Error in PlayerTorrent finalizer: %s", str(error))
@@ -119,9 +128,29 @@ class PlayerTorrent(Player):
 		log.info("Creating the torrent player.")
 		return Gst.parse_launch(self.COMMAND)
 	
+	def change_volume(self, volume):
+		self.volume.set_property('volume', volume)
+	
+	def select_stream(self, decodebin, collection, stream):
+		if stream.get_stream_type() == Gst.StreamType.VIDEO:
+			log.debug("video stream %s %s", decodebin.get_name(), collection.get_size())
+			log.debug(" caps: %s", stream.get_caps())
+			log.debug(" flags: %s", stream.get_stream_flags())
+		elif stream.get_stream_type() == Gst.StreamType.AUDIO:
+			log.debug("audio stream %s %s", decodebin.get_name(), collection.get_size())
+			log.debug(" caps: %s", stream.get_caps())
+			log.debug(" flags: %s", stream.get_stream_flags())
+		else:
+			log.warning("unknown stream %s %s", decodebin.get_name(), collection.get_size())
+			log.warning(" caps: %s", stream.get_caps())
+			log.warning(" flags: %s", stream.get_stream_flags())
+		return -1
+	
 	def open_url(self, uri):
 		#start_download([uri])
 		from pathlib import Path
+		
+		log.debug("open_url %s", uri)
 		
 		if self.source_file != None:
 			self.source_file.close()
@@ -133,13 +162,14 @@ class PlayerTorrent(Player):
 			self.source_file = path.open('rb')
 			self.file_size = path.stat().st_size
 			try:
-				self.appsrc.set_stream_size(self.file_size)
+				self.appsrc.set_size(self.file_size)
 			except AttributeError:
 				pass
+			self.pause()
 	
 	def data_available(self, position):
 		"Number of bytes available at `position`. Returns 0 if none."
-		return 1024 * 4 # TODO: finish implementation
+		return max(self.file_size - position, 0) # TODO: finish implementation
 	
 	@idle_add
 	def data_received(self, offset, length):
@@ -150,10 +180,8 @@ class PlayerTorrent(Player):
 			self.data_sending = GLib.io_add_watch(self.source_file, GLib.IO_IN | GLib.IO_HUP | GLib.IO_ERR, self.send_data)
 	
 	def send_data(self, fd, condition):
-		log.debug("send_data: data_needed=%d", self.data_needed)
-		
 		if GLib.IO_IN & condition:
-			data_size = min(self.MAX_BUFFER_SIZE, self.data_available(self.source_file.tell()), self.appsrc.get_property('max_bytes'), self.data_needed)
+			data_size = min(self.MAX_BUFFER_SIZE, self.data_available(self.source_file.tell()), self.appsrc.get_property('max_bytes') - self.appsrc.get_property('current_level_bytes'), self.data_needed)
 			
 			if data_size > 0:
 				chunk = self.source_file.read(data_size)
@@ -164,7 +192,8 @@ class PlayerTorrent(Player):
 				return False
 			
 			if chunk:
-				log.debug("send_data: push buffer %d", len(chunk))
+				if log_verbose:
+					log.debug("send_data %d", len(chunk))
 				
 				self.appsrc.emit('push_buffer', Gst.Buffer.new_wrapped(chunk))
 				
@@ -197,7 +226,8 @@ class PlayerTorrent(Player):
 	
 	@idle_add
 	def need_data(self, appsrc, length):
-		log.debug("need_data %d", length)
+		if log_verbose:
+			log.debug("need_data %d", length)
 		
 		self.data_needed += length
 		
@@ -206,36 +236,22 @@ class PlayerTorrent(Player):
 	
 	@idle_add
 	def enough_data(self):
-		log.debug("enough_data")
+		if log_verbose:
+			log.debug("enough_data")
 		
 		if self.data_sending != None:
 			GLib.source_remove(self.data_sending)
 			self.data_sending = None
 			self.data_needed = 0
 	
-	@idle_add
-	def seek_data(self, offset):
+	def seek_data(self, appsrc, offset):
 		log.debug("seek_data %d", offset)
 		
-		if self.source_file != None:
+		if self.source_file != None and 0 <= offset < self.file_size:
 			self.source_file.seek(offset)
-	
-	#def on_pipeline_init(self):
-	#	print("on_pipeline_init")
-	#	
-	#	self.appsrc = self.get_by_cls(GstApp.AppSrc)[0]
-	#	self.appsrc.set_property("format", Gst.Format.BYTES)
-	#	self.appsrc.set_property("block", False)
-	#	#self.appsrc.set_caps(Gst.Caps.from_string(self.CAPS))
-	#	
-	#	self.appsrc.connect('need-data', self.data_needed)
-	#	self.appsrc.connect('enough-data', self.enough_data)
-	#	self.appsrc.connect('seek-data', self.seek_data)
-	#	
-	#	#self.appsrc.set_stream_size(self.file_size)
-	#	
-	#	#while not self.pipeline.is_done:
-	#	#	time.sleep(.1)
+			return True
+		else:
+			return False
 
 
 if __debug__ and __name__ == '__main__':
