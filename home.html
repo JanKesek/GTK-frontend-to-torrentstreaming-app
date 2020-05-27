@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html>
+<head>
+<title></title>
+<style type="text/css">
+ body { font-family:sans-serif; }
+
+ header { text-align:center; width:100%; display:block; }
+ h1 { width:100%; text-align:center; font-style:italic; font-weight:lighter; }
+ nav { display:block; width:100%; word-spacing:30px; margin:0px auto; margin-top:30px; font-size:x-large; }
+ a { color:blue; text-decoration:none; font-weight:bold; }
+
+ aside { float:right; text-align:right; border:1px dotted red; width:60%; }
+ table#donate { text-align:center; table-layout:fixed; }
+ .addr { font-size:x-small; }
+ .descr { padding-top:15px; }
+
+ main { text-align:justify; margin-left:60px; margin-right:60px; margin-top:90px; margin-bottom:90px; }
+ h2 { width:100%; margin-left:10px; }
+ section.active { background-color:#ffe090; }
+ section.left { width:50%; }
+ section.right { float:right; width:50%; }
+
+ footer { text-align:right; padding-right:100px; font-size:small; }
+</style>
+
+<script type="text/javascript" src="/src/brython.js"/>
+
+<script type="text/python">
+ from brython import document
+
+
+ def highlight(link):
+  href = link.attrs['href']
+  section = document.select(href)[0]
+  section.attrs['class_name'] = 'active'
+
+ for link in document.select('nav a'):
+  link.bind('click', highlight)
+
+
+</script>
+
+</head>
+
+<body onload="brython()">
+
+<header>
+<h1>
+ <img src="mediakilla.png" alt="MediaKilla"/><br/>
+ the torrent videoplayer
+</h1>
+
+<nav>
+ <a href="#project">Project</a>
+ <a href="#drm">DRM</a>
+ <a href="#torrent">Torrent</a>
+ <a href="#features">Features</a>
+</nav>
+</header>
+
+<aside>
+<table id="donate">
+ <tr>
+  <td><h2>Donate Bitcoin</h2></td>
+  <td><h2>Donate Ether / DAI</h2></td>
+  <td><h2>Donate Tether / BitTorrent Token</h2></td>
+  <td><h2>Donate Paypal</h2></td>
+ </tr>
+ <tr>
+  <td>Gib btc</td>
+  <td><img src="ethereum_qr.png" alt="0x965E1AB07596bFc899DED753b8d85bc60Eb16c4B"/><br/><span class="addr">0x965E1AB07596bFc899DED753b8d85bc60Eb16c4B</span></td>
+  <td>ttx btt</td>
+  <td>monies?</td>
+ </tr>
+ <tr>
+  <td>Gib btc</td>
+  <td class="descr">We accept Ethereum and DAI, other tokens are welcome, too.</td>
+  <td>ttx btt</td>
+  <td>monies?</td>
+ </tr>
+</table>
+</aside>
+
+<main>
+
+<section id="project" class="left">
+
+<h2>Project</h2>
+<p>
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum massa risus, consequat nec euismod eu, dignissim ac dolor. Vestibulum quis euismod urna. Nam non venenatis urna. Sed hendrerit tristique nunc non fermentum. Duis eu cursus massa. Integer vitae tellus euismod mi volutpat condimentum. Nunc vel malesuada elit. Fusce convallis tempus accumsan. Sed ut ligula tellus. Pellentesque at magna viverra, convallis est id, venenatis quam. In hac habitasse platea dictumst. Maecenas massa magna, posuere a velit vitae, gravida pulvinar magna. Suspendisse luctus tincidunt lacus, posuere rutrum nisi sodales in. Sed turpis mi, commodo vel metus aliquam, ultricies mollis sapien. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Duis lectus lacus, pulvinar eu nulla eget, interdum semper quam.
+</p>
+<p>
+Ut viverra eros dolor, et tincidunt diam rutrum sed. Nulla sit amet massa eget nunc ullamcorper pretium. Cras odio risus, rhoncus a scelerisque vitae, molestie mattis eros. Duis pretium fermentum augue et elementum. Integer lobortis molestie purus, ac scelerisque mauris pulvinar vitae. Praesent sodales eleifend nunc ultricies ultrices. Fusce vestibulum velit id justo congue, ac tristique diam euismod. Proin vel aliquam elit, sed faucibus tortor. Mauris fermentum fermentum fermentum. Aenean arcu justo, euismod id erat non, vulputate euismod sem. Maecenas ullamcorper nisl eget sapien finibus suscipit sollicitudin eget ligula. Integer at libero est. Cras ultricies dolor non lectus aliquam vehicula. Cras sollicitudin mollis orci a dictum.
+</p>
+</section>
+
+<section id="drm" class="left">
+<h2>DRM</h2>
+<p>
+Suspendisse eget tellus faucibus, finibus est ut, venenatis ipsum. Nulla posuere magna id mauris lacinia, nec mollis risus vestibulum. Proin et faucibus dui, vel egestas lorem. Aliquam ac fermentum risus. Praesent suscipit pellentesque metus, vel tempor elit. Donec rutrum orci cursus, molestie sem vitae, ultrices ex. Quisque fermentum malesuada feugiat. Nullam bibendum ac ante et iaculis. Maecenas aliquam feugiat elit. Fusce dignissim risus ut tortor blandit ultricies. Integer rutrum turpis vel velit ultricies, quis porta quam aliquet. Cras ornare lorem id odio consectetur, ut molestie dui maximus. Vestibulum dignissim felis sit amet felis auctor, ut rhoncus diam eleifend.
+</p>
+</section>
+
+
+<section id="torrent" class="right">
+<h2>Torrent</h2>
+<p>
+Duis mattis nisi imperdiet iaculis pretium. Integer in pulvinar nunc, ac eleifend turpis. Mauris augue tellus, mattis ac dapibus sit amet, tristique vel libero. Vivamus fringilla felis placerat arcu porta, sit amet molestie lorem dictum. Nullam bibendum metus luctus tortor condimentum, in molestie nibh dapibus. Quisque dui urna, efficitur eu libero vel, mollis tristique nisl. Mauris vulputate magna odio, non fermentum risus tempus blandit. Etiam in ante non neque consequat sollicitudin ut eget mi. Sed ornare nulla sit amet fringilla cursus. Sed non arcu at ex condimentum euismod at eu mauris.
+</p>
+</section>
+
+<section id="features" class="right">
+<h2>Features</h2>
+<p>
+Quisque interdum arcu eget dictum tristique. Donec tincidunt suscipit semper. Sed quis vulputate libero. Aenean lacinia sed nulla pulvinar commodo. Donec faucibus ut velit ut dapibus. Pellentesque id sagittis enim. Nunc nibh lorem, ullamcorper ut dictum at, faucibus eget erat. Ut fermentum interdum elementum. In hendrerit vulputate diam, id tincidunt urna auctor sed. Nunc non lacinia arcu, a tristique urna. 
+</p>
+</section>
+
+</main>
+
+<footer>
+(c)
+</footer>
+
+</body>
+</html>
