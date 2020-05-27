@@ -64,7 +64,20 @@ if player_version != __version__:
 
 @GObject.type_register
 class PlayerTorrent(Player):
-	COMMAND = "appsrc name=AppSrc emit-signals=True is-live=False ! queue max-size-buffers=4 ! decodebin ! videoconvert ! autovideosink"
+	#COMMAND = "appsrc name=AppSrc emit-signals=True is-live=False ! queue max-size-buffers=4 ! decodebin ! videoconvert ! autovideosink"
+	#COMMAND = "appsrc name=AppSrc emit-signals=True is-live=False ! queue max-size-buffers=4 ! decodebin name=dec \ dec. ! videoconvert ! autovideosink .dec \
+	#			queue ! audioconvert ! audioresample ! autoaudiosink \ dec."
+	#COMMAND = """
+	#	appsrc name=AppSrc emit-signals=true is-live=true ! 
+#		qtdemux name=demuxer  demuxer. ! queue ! avdec_h264 ! autovideosink  demuxer.audio_0 !  queue ! audioconvert ! audioresample ! volume volume=0.5 ! autoaudiosink
+#				"""
+	COMMAND= """
+	appsrc name=AppSrc emit-signals=true is-live=false ! typefind ! qtdemux name=demuxer \
+	demuxer. ! videoconvert ! queue ! autovideosink \
+	demuxer.audio_0 ! audioconvert ! queue ! volume volume=5  ! autoaudiosink 
+		"""
+
+	#demuxer.decodebin
 	MAX_BUFFER_SIZE = 16 * 1024
 	
 	def __init__(self):		
