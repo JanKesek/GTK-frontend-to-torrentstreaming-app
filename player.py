@@ -209,7 +209,7 @@ if __debug__ and __name__ == '__main__':
 	
 	player.connect('state-changed', lambda plyr, state: log.info("Signal: state-changed %s", state))
 	player.connect('current-position', lambda plyr, position, duration: log.info("Signal: current-position %f %f", position, duration))
-	player.connect('xid-needed', lambda plyr: window.get_property('window').get_xid())
+	player.connect('xid-needed', lambda plyr: window.get_window().get_xid())
 	player.connect('eos', lambda plyr: log.info("Signal: eos"))
 	
 	window.connect('destroy', lambda win: Gtk.main_quit())

@@ -39,7 +39,7 @@ log = logging.getLogger('playertorrent')
 log.setLevel(logging.DEBUG)
 if __debug__:
 	log.addHandler(logging.StreamHandler())
-log_verbose = True
+log_verbose = False
 
 import gi
 
@@ -181,7 +181,7 @@ class PlayerTorrent(Player):
 	
 	def send_data(self, fd, condition):
 		if GLib.IO_IN & condition:
-			data_size = min(self.MAX_BUFFER_SIZE, self.data_available(self.source_file.tell()), self.appsrc.get_property('max_bytes') - self.appsrc.get_property('current_level_bytes'), self.data_needed)
+			data_size = min(self.MAX_BUFFER_SIZE, self.data_available(self.source_file.tell()), self.appsrc.get_max_bytes() - self.appsrc.get_current_level_bytes(), self.data_needed)
 			
 			if data_size > 0:
 				chunk = self.source_file.read(data_size)
@@ -276,7 +276,7 @@ if __debug__ and __name__ == '__main__':
 	
 	player.connect('state-changed', lambda plyr, state: log.info("state-changed %s", state))
 	player.connect('current-position', lambda plyr, position, duration: log.info("current-position %f %f", position, duration))
-	player.connect('xid-needed', lambda plyr: window.get_property('window').get_xid())
+	player.connect('xid-needed', lambda plyr: window.get_window().get_xid())
 	player.connect('eos', lambda plyr: log.info("eos"))
 	
 	window.connect('destroy', lambda win: Gtk.main_quit())

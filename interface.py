@@ -267,7 +267,7 @@ class Interface(GObject.Object):
 			self.update_interface_visibility()
 	
 	def get_window_xid(self):
-		return self.movie_window.get_property('window').get_xid()
+		return self.movie_window.get_window().get_xid()
 	
 	def main_window_keydown(self, widget, event):
 		if event.keyval == 65307: # escape
