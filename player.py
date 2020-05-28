@@ -126,7 +126,7 @@ class Player(GObject.Object):
 		self.emit('state-changed', self.last_player_state)
 	
 	def change_volume(self, volume):
-		self.player.set_property('volume', volume)
+		self.player.set_property('volume', volume * 2)
 	
 	def rewind(self, seconds=5):
 		current = self.player.query_position(Gst.Format.TIME)[1] / Gst.SECOND

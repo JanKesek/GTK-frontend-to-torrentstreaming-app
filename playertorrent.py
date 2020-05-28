@@ -78,11 +78,11 @@ class PlayerTorrent(Player):
 		super().__init__()
 		
 		self.appsrc = self.player.get_by_name('AppSrc')
-		self.appsrc.set_property('format', Gst.Format.BYTES)
+		self.appsrc.set_format(Gst.Format.BYTES)
 		self.appsrc.set_property('block', False)
-		self.appsrc.set_property('emit-signals', True)
-		self.appsrc.set_property('is-live', False)
-		self.appsrc.set_property('stream-type', GstApp.AppStreamType.SEEKABLE)
+		self.appsrc.set_emit_signals(True)
+		self.appsrc.set_property('is_live', False)
+		self.appsrc.set_stream_type(GstApp.AppStreamType.SEEKABLE)
 		
 		asconn1 = self.appsrc.connect('need-data', self.need_data)
 		asconn2 = self.appsrc.connect('enough-data', self.enough_data)
@@ -129,7 +129,7 @@ class PlayerTorrent(Player):
 		return Gst.parse_launch(self.COMMAND)
 	
 	def change_volume(self, volume):
-		self.volume.set_property('volume', volume)
+		self.volume.set_property('volume', volume * 2)
 	
 	def select_stream(self, decodebin, collection, stream):
 		if stream.get_stream_type() == Gst.StreamType.VIDEO:
