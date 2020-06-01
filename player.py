@@ -34,7 +34,7 @@ __all__ = 'Player',
 
 
 import logging
-
+import threading
 log = logging.getLogger('player')
 log.setLevel(logging.DEBUG)
 if __debug__:
@@ -73,7 +73,8 @@ class Player(GObject.Object):
 		self.last_player_state = PlayerState.UNKNOWN
 		
 		self.player = self.create_pipeline()
-		
+		t=threading.Timer(1.0,self.state_worker)
+		t.start()
 		self.bus = self.player.get_bus()
 		self.bus.add_signal_watch()
 		self.bus.enable_sync_message_emission()
@@ -103,7 +104,7 @@ class Player(GObject.Object):
 	def open_url(self, uri):
 		from pathlib import Path
 		
-		self.stop()
+		#self.stop()
 		
 		filepath = Path(uri)
 		if filepath.is_file():
@@ -111,10 +112,10 @@ class Player(GObject.Object):
 		else:
 			self.player.set_property('uri', uri)
 		
-		self.pause()
+		#self.pause()
 	
 	def play(self):
-		self.player.set_state(Gst.State.PLAYING)
+		#self.player.set_state(Gst.State.PLAYING)
 		self.emit_current_position()
 	
 	def pause(self):
@@ -126,6 +127,7 @@ class Player(GObject.Object):
 		self.emit('state-changed', self.last_player_state)
 	
 	def change_volume(self, volume):
+		#pass
 		self.player.set_property('volume', volume)
 	
 	def rewind(self, seconds=5):
@@ -146,7 +148,8 @@ class Player(GObject.Object):
 		duration = self.player.query_duration(Gst.Format.TIME)[1] / Gst.SECOND
 		self.emit('current-position', position, duration)
 		return True
-	
+	def state_worker(self):
+		print(type(self.player))
 	@idle_add
 	def on_message(self, bus, message):
 		t = message.type
