@@ -101,6 +101,8 @@ class Player(GObject.Object):
 		return Gst.ElementFactory.make("playbin", "player")
 	
 	def open_url(self, uri):
+		log.debug("Player.open_url('%s')", uri)
+		
 		from pathlib import Path
 		
 		self.stop()
@@ -114,33 +116,40 @@ class Player(GObject.Object):
 		self.pause()
 	
 	def play(self):
+		log.debug("Player.play()")
 		self.player.set_state(Gst.State.PLAYING)
 		self.emit_current_position()
 	
 	def pause(self):
+		log.debug("Player.pause()")
 		self.player.set_state(Gst.State.PAUSED)
 	
 	def stop(self):
+		log.debug("Player.stop()")
 		self.player.set_state(Gst.State.NULL)
 		self.last_player_state = -1
 		self.emit('state-changed', self.last_player_state)
 	
 	def change_volume(self, volume):
+		log.debug("Player.change_volume(%f)", volume)
 		self.player.set_property('volume', volume * 2)
 	
 	def rewind(self, seconds=5):
+		log.debug("Player.rewind(%f)", seconds)
 		current = self.player.query_position(Gst.Format.TIME)[1] / Gst.SECOND
 		self.seek(current - seconds)
 	
 	def forward(self, seconds=5):
+		log.debug("Player.forward(%f)", seconds)
 		current = self.player.query_position(Gst.Format.TIME)[1] / Gst.SECOND
 		self.seek(current + seconds)
 	
 	def seek(self, position):
-		log.debug("seek to: %f", position)
+		log.debug("Player.seed(%f)", seconds)
 		self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, Gst.SECOND * position)
 	
 	def emit_current_position(self):
+		log.debug("Player.emit_current_position()")
 		if self.player.target_state not in [Gst.State.PLAYING, Gst.State.PAUSED]: return True
 		position = self.player.query_position(Gst.Format.TIME)[1] / Gst.SECOND
 		duration = self.player.query_duration(Gst.Format.TIME)[1] / Gst.SECOND
@@ -174,16 +183,18 @@ class Player(GObject.Object):
 			
 			if self.last_player_state != self.player.target_state:
 				self.last_player_state = self.player.target_state
-				log.debug("Player state changed: %s", str(new_state))
+				log.debug("Player.emit('state-changed', int(%s))", str(new_state))
 				self.emit('state-changed', int(new_state))
 	
 	@idle_add
 	def on_sync_message(self, bus, message):
-		if message.get_structure().get_name() == 'prepare-window-handle':
+		message_name = message.get_structure().get_name()
+		log.debug("Player.on_sync_message(<bus %x>, <message '%s'>)", id(bus), message_name)
+		if message_name == 'prepare-window-handle':
 			imagesink = message.src
 			imagesink.set_property('force-aspect-ratio', True)
 			xid = self.emit('xid-needed')
-			log.debug("imagesink xid=%d", xid)
+			log.info("Player: received window xid=%x", xid)
 			imagesink.set_window_handle(xid)
 
 

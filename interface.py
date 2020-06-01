@@ -92,7 +92,7 @@ class Interface(GObject.Object):
 	
 	@idle_add
 	def quit(self, *args):
-		log.debug('quit')
+		log.debug("Interface.quit()")
 		self.emit('stop')
 		self.emit('quit')
 	
@@ -112,6 +112,7 @@ class Interface(GObject.Object):
 	@idle_add
 	def show_elements(self, *args):
 		if self.is_fullscreen and not self.progress_box.is_visible():
+			assert self.movie_window.get_realized()
 			self.movie_window.get_window().set_cursor(Gdk.Cursor(Gdk.CursorType.ARROW))
 			self.address_box.set_visible(False)
 			self.progress_box.set_visible(True)
@@ -120,6 +121,8 @@ class Interface(GObject.Object):
 	
 	@idle_add
 	def fullscreen(self, *args):
+		log.debug("Interface.fullscreen()")
+		
 		if self.last_player_state == PlayerState.PLAYING:
 			self.movie_window.grab_focus()
 		elif self.last_player_state == PlayerState.PAUSED:
@@ -138,11 +141,14 @@ class Interface(GObject.Object):
 	
 	@idle_add
 	def update_interface_visibility(self):
+		log.debug("Interface.update_interface_visibility()")
+		
 		if self.last_player_state in [PlayerState.PLAYING, PlayerState.PAUSED]:
 			self.show_player_tab()
 		else:
 			self.show_webview_tab()
 		
+		assert self.movie_window.get_realized()
 		movie_gdk_window = self.movie_window.get_window()
 		
 		if not self.is_fullscreen:
@@ -176,11 +182,13 @@ class Interface(GObject.Object):
 	@idle_add
 	def open_url(self, *args):
 		uri = self.entry1.get_text().strip()
+		log.debug("Interface.open_url('%s')", uri)
 		self.emit('open-url', uri)
 		self.pausebutton.grab_focus()
 	
 	@idle_add
 	def play(self, *args):
+		log.debug("Interface.play()")
 		self.movie_window.grab_focus()
 		if self.pausebutton.get_active():
 			self.suppress_pause_toggle = True
@@ -189,26 +197,37 @@ class Interface(GObject.Object):
 		if self.movie_window.get_realized():
 			self.emit('play')
 		else:
+			log.warning("Movie window not realized.")
 			def play_after_realized(movie_window):
+				log.info("Movie window became realized.")
+				log.debug("Interface.emit('play')")
 				self.emit('play')
 				self.movie_window.disconnect_by_func(play_after_realized)
+			log.warning("Postponing 'play' signal until the window is realized.")
 			self.movie_window.connect('realized', play_after_realized)
 	
 	@idle_add
 	def pause(self, *args):
+		log.debug("Interface.pause()")
 		if not self.pausebutton.get_active():
 			self.suppress_pause_toggle = True
 			self.pausebutton.set_active(True)
 		if self.movie_window.get_realized():
 			self.emit('pause')
 		else:
+			log.warning("Movie window not realized.")
 			def pause_after_realized(movie_window):
+				log.info("Movie window became realized.")
+				log.debug("Interface.emit('pause')")
 				self.emit('pause')
 				self.movie_window.disconnect_by_func(pause_after_realized)
+			log.warning("Postponing 'pause' signal until the window is realized.")
 			self.movie_window.connect('realized', pause_after_realized)
 	
 	@idle_add
 	def toggle(self, *args):
+		log.debug("Interface.toggle()")
+		
 		if self.suppress_pause_toggle:
 			self.suppress_pause_toggle = False
 			return
@@ -220,10 +239,10 @@ class Interface(GObject.Object):
 	
 	@idle_add
 	def stop(self, *args):
+		log.debug("Interface.stop()")
 		if self.pausebutton.get_active():
 			self.suppress_pause_toggle = True
 			self.pausebutton.set_active(False)
-		
 		self.emit('stop')
 		self.progressbar.set_fraction(0)
 		self.progresstext.set_text("")
@@ -234,21 +253,26 @@ class Interface(GObject.Object):
 	@idle_add
 	def change_volume(self, *args):
 		new_volume = self.volumebutton1.get_value()
+		log.debug("Interface.change_volume(%f)", new_volume)
 		self.emit('change-volume', new_volume)
 	
 	@idle_add
 	def rewind(self, *args):
+		log.debug("Interface.rewind()")
 		self.emit('rewind', 5)
 	
 	@idle_add
 	def forward(self, *args):
+		log.debug("Interface.forward()")
 		self.emit('forward', 5)
 	
 	def seek(self, position):
+		log.debug("Interface.seek(%f)", position)
 		self.emit('seek', position)
 	
 	@idle_add
 	def current_position(self, position, duration):
+		log.debug("Interface.current_position(%f, %f)", position, duration)
 		self.duration = duration
 		if duration > 0.00001:
 			self.progressbar.set_fraction(position / duration)
@@ -260,6 +284,7 @@ class Interface(GObject.Object):
 	@idle_add
 	def progress_mouse(self, widget, event):
 		x = float(event.x)
+		log.debug("Interface.current_position(<widget %x>, %f)", id(widget), x)
 		try:
 			seek_perc = x / self.progressbar.get_allocated_width()
 		except ZeroDivisionError:
@@ -274,13 +299,16 @@ class Interface(GObject.Object):
 	
 	def player_state_changed(self, new_state):
 		if self.last_player_state != new_state:
-			log.debug("Player state changed to %s", self.last_player_state.name)
 			self.last_player_state = PlayerState(new_state)
+			log.debug("Interface.player_state_changed(int(%s))", str(self.last_player_state))
 			self.update_interface_visibility()
 	
 	def get_window_xid(self):
+		log.debug("Interface.get_window_xid()")
 		assert self.movie_window.get_realized()
-		return self.movie_window.get_window().get_xid()
+		xid = self.movie_window.get_window().get_xid()
+		log.info("Interface: sending window xid=%x", xid)
+		return xid
 	
 	def main_window_keydown(self, widget, event):
 		if event.keyval == 65307: # escape
@@ -319,9 +347,11 @@ class Interface(GObject.Object):
 		return event.keyval in [32] # the same keycodes as in movie_window_keydown
 	
 	def show_player_tab(self):
+		log.debug("Interface.show_player_tab()")
 		self.notebook1.set_current_page(0)
 	
 	def show_webview_tab(self):
+		log.debug("Interface.show_webview_tab()")
 		self.notebook1.set_current_page(1)
 
 

@@ -129,43 +129,44 @@ class PlayerTorrent(Player):
 		return Gst.parse_launch(self.COMMAND)
 	
 	def change_volume(self, volume):
+		log.debug("PlayerTorrent.change_volume(%f)", volume)
 		self.volume.set_property('volume', volume * 2)
 	
 	def select_stream(self, decodebin, collection, stream):
+		log.debug("PlayerTorrent.select_stream(<decodebin %x>, <collection %x>, <stream %x>)", id(decodebin), id(collection), id(stream))
 		if stream.get_stream_type() == Gst.StreamType.VIDEO:
-			log.debug("video stream %s %s", decodebin.get_name(), collection.get_size())
+			log.info("video stream %s %s", decodebin.get_name(), collection.get_size())
 			log.debug(" caps: %s", stream.get_caps())
 			log.debug(" flags: %s", stream.get_stream_flags())
 		elif stream.get_stream_type() == Gst.StreamType.AUDIO:
-			log.debug("audio stream %s %s", decodebin.get_name(), collection.get_size())
+			log.info("audio stream %s %s", decodebin.get_name(), collection.get_size())
 			log.debug(" caps: %s", stream.get_caps())
 			log.debug(" flags: %s", stream.get_stream_flags())
 		else:
 			log.warning("unknown stream %s %s", decodebin.get_name(), collection.get_size())
-			log.warning(" caps: %s", stream.get_caps())
-			log.warning(" flags: %s", stream.get_stream_flags())
+			log.debug(" caps: %s", stream.get_caps())
+			log.debug(" flags: %s", stream.get_stream_flags())
 		return -1
 	
 	def open_url(self, uri):
-		#start_download([uri])
-		from pathlib import Path
+		log.debug("PlayerTorrent.open_url('%s')", uri)
 		
-		log.debug("open_url %s", uri)
+		from pathlib import Path
 		
 		if self.source_file != None:
 			self.source_file.close()
 			self.source_file = None
 			self.file_size = 0
 		
+		self.stop()
+		
 		path = Path(uri)
 		if path.is_file():
 			self.source_file = path.open('rb')
 			self.file_size = path.stat().st_size
-			try:
-				self.appsrc.set_size(self.file_size)
-			except AttributeError:
-				pass
-			self.pause()
+			self.appsrc.set_size(self.file_size)
+		
+		self.pause()
 	
 	def data_available(self, position):
 		"Number of bytes available at `position`. Returns 0 if none."
@@ -227,7 +228,7 @@ class PlayerTorrent(Player):
 	@idle_add
 	def need_data(self, appsrc, length):
 		if log_verbose:
-			log.debug("need_data %d", length)
+			log.debug("PlayerTorrent.need_data(<appsrc %x>, %d)", id(appsrc), length)
 		
 		self.data_needed += length
 		
@@ -237,7 +238,7 @@ class PlayerTorrent(Player):
 	@idle_add
 	def enough_data(self):
 		if log_verbose:
-			log.debug("enough_data")
+			log.debug("PlayerTorrent.enough_data()")
 		
 		if self.data_sending != None:
 			GLib.source_remove(self.data_sending)
@@ -245,7 +246,7 @@ class PlayerTorrent(Player):
 			self.data_needed = 0
 	
 	def seek_data(self, appsrc, offset):
-		log.debug("seek_data %d", offset)
+		log.debug("PlayerTorrent.seek_data(<appsrc %x>, %d)", id(appsrc), offset)
 		
 		if self.source_file != None and 0 <= offset < self.file_size:
 			self.source_file.seek(offset)

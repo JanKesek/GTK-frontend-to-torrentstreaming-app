@@ -164,6 +164,8 @@ if __name__ == '__main__':
 	
 	idle_add(enable_exceptions)(log)
 	
+	idle_add(interface.movie_window.realize)()
+	
 	#def test_exception():
 	#	raise RuntimeError("test exception")
 	#GLib.timeout_add(4000, test_exception)
