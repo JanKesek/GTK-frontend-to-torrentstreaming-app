@@ -145,7 +145,7 @@ class Player(GObject.Object):
 		self.seek(current + seconds)
 	
 	def seek(self, position):
-		log.debug("Player.seed(%f)", seconds)
+		log.debug("Player.seek(%f)", position)
 		self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, Gst.SECOND * position)
 	
 	def emit_current_position(self):
