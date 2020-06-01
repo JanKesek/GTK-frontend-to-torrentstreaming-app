@@ -186,14 +186,26 @@ class Interface(GObject.Object):
 			self.suppress_pause_toggle = True
 			self.pausebutton.set_active(False)
 		self.change_volume()
-		self.emit('play')
+		if self.movie_window.get_realized():
+			self.emit('play')
+		else:
+			def play_after_realized(movie_window):
+				self.emit('play')
+				self.movie_window.disconnect_by_func(play_after_realized)
+			self.movie_window.connect('realized', play_after_realized)
 	
 	@idle_add
 	def pause(self, *args):
 		if not self.pausebutton.get_active():
 			self.suppress_pause_toggle = True
 			self.pausebutton.set_active(True)
-		self.emit('pause')
+		if self.movie_window.get_realized():
+			self.emit('pause')
+		else:
+			def pause_after_realized(movie_window):
+				self.emit('pause')
+				self.movie_window.disconnect_by_func(pause_after_realized)
+			self.movie_window.connect('realized', pause_after_realized)
 	
 	@idle_add
 	def toggle(self, *args):
@@ -267,6 +279,7 @@ class Interface(GObject.Object):
 			self.update_interface_visibility()
 	
 	def get_window_xid(self):
+		assert self.movie_window.get_realized()
 		return self.movie_window.get_window().get_xid()
 	
 	def main_window_keydown(self, widget, event):

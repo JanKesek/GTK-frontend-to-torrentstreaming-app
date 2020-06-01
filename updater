@@ -1,0 +1,97 @@
+#!/usr/bin/python3
+#-*- coding:utf8 -*-
+
+try:
+	import gi
+	
+	gi_version = gi.version_info
+	
+	try:
+		gi.require_version('Gtk', '3.0')
+		from gi.repository import Gtk
+		gtk = Gtk.get_major_version(), Gtk.get_minor_version(), Gtk.get_micro_version()
+	except ValueError:
+		gtk = None
+	
+	try:
+		gi.require_version('Gst', '1.0')
+		from gi.repository import Gst
+		Gst.init(None)
+		gst = Gst.version().major, Gst.version().minor, Gst.version().micro, Gst.version().nano
+		
+		try:
+			gi.require_version('GstVideo', '1.0')
+			from gi.repository import GstVideo
+			gst_video = tuple(map(int, GstVideo._version.split('.')))
+		except ValueError:
+			gst_video = None
+		
+		try:
+			gi.require_version('GstApp', '1.0')
+			from gi.repository import GstApp
+			gst_app = tuple(map(int, GstApp._version.split('.')))
+		except ValueError:
+			gst_app = None
+	
+	except ValueError:
+		gst = None
+	
+	try:
+		gi.require_version('WebKit2', '4.0')
+		from gi.repository import WebKit2
+		web_kit = WebKit2.get_major_version(), WebKit2.get_minor_version(), WebKit2.get_micro_version()
+	except ValueError:
+		web_kit = None
+except ImportError:
+	gi_version = None
+
+
+try:
+	import libtorrent
+	libtorrent_version = tuple(map(int, libtorrent.version.split('.')))
+except ImportError:
+	libtorrent_version = None
+
+
+print_list = []
+
+if gi_version:
+	print_list.append(('pygobject', '.'.join(map(str, gi_version))))
+	print_list.append(('Gtk', '3.0', '.'.join(map(str, gtk))))
+	print_list.append(('Gst', '1.0', '.'.join(map(str, gst))))
+	print_list.append(('GstVideo', "1.0", '.'.join(map(str, gst_video))))
+	print_list.append(('GstApp', '1.0', '.'.join(map(str, gst_app))))
+	print_list.append(('WebKit2', '4.0', '.'.join(map(str, web_kit))))
+	
+else:
+	print_list.append(("pygobject not installed",))
+
+
+if libtorrent_version:
+	print_list.append(('libtorrent', '.'.join(map(str, libtorrent_version))))
+else:
+	print_list.append(("libtorrent not installed",))
+
+
+for pack in print_list:
+	print(' '.join(pack))
+
+
+import os
+if os.name == 'posix':
+	try:
+		os.execlp('zenity', 'zenity', '--error', '--title', "MediaKilla Updater", '--text', '\n'.join(['\t'.join(_ln) for _ln in print_list]), '--no-wrap')
+	except:
+		pass
+	
+	try:
+		os.execlp('xmessage', 'xmessage', '\n'.join([' '.join(_ln) for _ln in print_list]))
+	except:
+		pass
+elif os.name == 'nt':
+	try:
+		import ctypes
+		ctypes.windll.user32.MessageBoxW(0, '\n'.join([' '.join(_ln) for _ln in print_list]), "MediaKilla Updater", 1)
+	except:
+		pass
+
